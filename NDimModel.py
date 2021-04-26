@@ -11,20 +11,110 @@ malewick@cern.ch
 import pandas as pd
 import numpy as np
 from numpy import *
-import sys
 import re
-import copy
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import matplotlib
-#matplotlib.rcParams['text.usetex'] = True
-
-import matplotlib.animation as animation
 
 import time
 
-from matplotlib.patches import Rectangle
+import xml.etree.ElementTree as ET
+
+import sympy
+
+import TimeSeriesPlot
+import PathPlot
+import CorrelationPlot
+
+
+def splitall(s):
+	for delimiter in [';',',','\t']:
+		if delimiter in s :
+			s=s.split(delimiter)
+			if type(s) is not str:
+				s = list(filter(lambda x : x!=delimiter, s))
+				s = list(filter(None, s))
+	if type(s) is str:
+		return [s]
+	else :
+		return s
+
+class Plotter:
+
+	def __init__(self):
+		self.switch_1=True
+		self.switch_2=True
+		self.switch_3=False
+
+
+	def initialize_plots(self,model,group):
+		# ion for live updates
+		if self.switch_1 and self.switch_2:
+			plt.ion()
+		else:
+			return
+
+		if self.switch_1:
+			# figure 1 -- the chains
+			self.plot1 = TimeSeriesPlot.TimeSeriesPlot(model)
+			# figure 2 -- the path on the isotope map
+			self.plot2 = PathPlot.PathPlot(model,group)
+
+		if self.switch_2 :
+			# figure 3 -- histograms and correaltion of Markov chain variables`
+			self.plot3 = CorrelationPlot.CorrelationPlot(model)
+
+		# ----------------------------------
+
+
+	def draw_at_checkpoint(self,model) :
+
+		if self.switch_2 and len(model.xd1[0])>1 :
+			self.plot3.update(model)
+
+	def draw_at_metropolis(self,model,M,r,f) :
+
+		if self.switch_1 :
+			self.plot1.update(model,M,r,f)
+			self.plot2.update(model,M)
+
+	def finished_plotting(self,model,group) :
+
+		if self.switch_1:
+			self.plot1.save(model.output_dir+'/'+"group_"+str(group)+"_")
+			self.plot2.save(model.output_dir+'/'+"group_"+str(group)+"_")
+		if self.switch_2:
+			self.plot3.save(model.output_dir+'/'+"group_"+str(group)+"_")
+
+	def draw_final_dists(self,xdata,model) :
+
+		if not self.switch_3:
+			return
+
+		fig, ax = plt.subplots(model.nvariables, 2, sharex=True)
+
+		print(model.var_list)
+
+		for i,var in enumerate(model.var_list) :
+
+			print(var)
+			xhist, xbins = np.histogram(xdata[i], bins=100, range=(0,1))
+			bincentres = [(xbins[i]+xbins[i+1])/2. for i in range(len(xbins)-1)]
+			ax[i][0].step(bincentres,xhist,where='mid')
+			xhist = xhist.astype(float)
+			xcum = np.cumsum(xhist)
+			xcum /= xcum[-1]
+			ax[i][1].step(bincentres,xcum,where='mid')
+			ax[i][0].set_title(var)
+
+		plt.show(block=True)
+
+	def draw_only_at_end(self,model,group):
+		self.switch_1=False
+		self.initialize_plots(model,group)
+		self.draw_at_checkpoint(model)
+		self.finished_plotting(model,group)
 
 
 class Model:
@@ -32,8 +122,9 @@ class Model:
 	def __init__(self):
 
 		# online plotting, True by default
-		self.plotting_switch_1=True
-		self.plotting_switch_2=True
+		self.plotting_switch=True
+		self.threading_safe=False
+
 		self.set_iterations()
 		
 		# 1 - verbose, 2 - limited, 3 - only important
@@ -46,25 +137,92 @@ class Model:
 		self.aux=[]
 		self.aux_stdev=[]
 
+		self.erf_toggle = True
+
+		self.abort = False
+		self.latex = False
+
+		self.chain_counter=0
+
+		self.axes_labels=[]
+		self.default_delimiter=','
+
+		# was the 'set_up_data' method called?
+		self.initialized=False
+
+		# 0 - just the regular output
+		# 1 - technical and mathematical details
+		# 2 - coding debug
+		self.verbosity=1
+
+	def reset(self) :
+		# was the 'set_up_data' method called?
+		self.initialized=False
+		self.set_up_data()
+		self.abort=False
+
+
 	def load_from_fielnames(self, data_file, sources_file, aux_file=None):
 		self.load_measurements(data_file)
 		self.load_sources(sources_file)
-		if aux_file is not None:
+		if aux_file is not None and aux_file != "":
 			self.load_aux(aux_file)
 
 		self.set_up_data()
+
+	def save_to_xml(self, xml_file):
+
+		# create the file structure
+		data = ET.Element('data')
+		items = ET.SubElement(data, 'items')
+		item1 = ET.SubElement(items, 'item')
+		item2 = ET.SubElement(items, 'item')
+		item1.set('name','data_file')
+		item2.set('name','sources_file')
+		item1.text = self.data_file
+		item2.text = self.sources_file
+		if self.aux_file != None:
+			item3 = ET.SubElement(items, 'item')
+			item3.set('name','aux_file')
+			item3.text = self.aux_file
+
+		# create a new XML file with the results
+		mydata = ET.tostring(data)
+		myfile = open(xml_file, "w")
+		myfile.write(mydata)
+
+	def load_from_xml(self, xml_file):
+
+		tree = ET.parse(xml_file)
+		root = tree.getroot()
+		dict_from_xml={}
+		for elem in root:
+			for subelem in elem:
+				print(subelem.attrib, subelem.text)
+				dict_from_xml[subelem.attrib['name']] = subelem.text
+		print(dict_from_xml)
+
+		self.load_measurements(dict_from_xml['data_file'])
+		self.load_sources(dict_from_xml['sources_file'])
+		if 'aux_file' in dict_from_xml.keys():
+			self.load_aux(dict_from_xml['aux_file'])
+
+		self.set_up_data()
+
 
 	def load_measurements(self, data_file):
 
 		# Create measurements DataFrame
 		self.data_file = data_file
 		self.df = pd.read_csv(data_file, skiprows = 0, delimiter="[,\t]", engine='python')
+		new_col = self.df.index
+		self.df.insert(loc=0, column='sample_id', value=new_col)
 		print("Measurements dataframe:")
 		print(self.df)
 
 		self.isotopes_list=[]
 		for var in [*self.df.columns]:
-			if var!="group" and var!="label" and "sigma" not in var:
+			if var!="group" and var!="label" and "sigma" not in var and var!="sample_id":
 				self.isotopes_list.append(var)
 		print("isotopes_list: ",self.isotopes_list)
 		print()
@@ -72,6 +230,7 @@ class Model:
 	def load_sources(self, sources_file):
 
 		# Create sources DataFrame 
+		self.sources_file=sources_file
 		self.df_sources = pd.read_csv(sources_file, skiprows = 0, delimiter="[,\t]", engine='python')
 		print("Sources dataframe:")
 		print(self.df_sources)
@@ -82,9 +241,21 @@ class Model:
 		print("sources list:", self.sources_list)
 		print()
 
+		delta_sum=0
+		for iso in self.isotopes_list:
+			for delta in self.df_sources["delta("+iso+")"]:
+				delta_sum += delta
+		if delta_sum == 0:
+			print("Using gaussian-like likelihood function.")
+			self.erf_toggle = False
+		else :
+			print("Using erf-like likelihood function.")
+			
+
 
 	def load_aux(self, aux_file):
 
+		self.aux_file=aux_file
 		# Create auxiliary parameter DataFrame
 		print("--- Aux file import ---")
 
@@ -92,41 +263,45 @@ class Model:
 			content = f.readlines()
 		content = [x.strip() for x in content]
 
-		aux_par_names = content[0].split()
-		print("aux_par_names:",aux_par_names)
-
-		aux_var_names = content[1].split()
-		print("aux_var_names:",aux_var_names)
-
-		model_equation = content[2]
+		print(content[0])
+		model_equation = splitall(content[0])
+		model_equation=model_equation[0]
 		print("model_equation: ",model_equation)
 
-		if "," in content[3]:
-			derivatives = content[3].split(",")
-		else:
-			derivatives = content[3].split("\t")
-		print("derivatives:", derivatives)
-
-		self.df_aux = pd.read_csv(aux_file, skiprows = 4, delimiter='[,\t]', engine='python')
+		self.df_aux = pd.read_csv(aux_file, skiprows = 1, delimiter='[,\t]', engine='python')
 		print("Auxiliary parameter DataFrame")
 		print(self.df_aux)
 		print()
 
 		self.model_definition=model_equation
-		self.model_derivatives=derivatives
-		self.aux_pars=aux_par_names
-		self.aux_vars=aux_var_names
+		self.aux_pars=list(self.df_aux['name'].unique())
+		self.aux_vars=list(set(re.findall(r'r\d',self.model_definition)))
+		if len(self.aux_vars)==0:
+			self.aux_vars=list(set(re.findall(r'r',self.model_definition)))
+			if len(self.aux_vars)>1:
+				print("ERROR: something's wrong with declaration of auxiliary variables in the model.")
 
 		self.aux_toggle=True
+
+		print("auxiliary parameters list:", self.aux_pars)
+		print("auxiliary variables list:", self.aux_vars)
 
 
 
 	def set_outdir(self, out_dir=".") :
 
 		# Output directory and files
-		self.output_dir=out_dir
-		self.dataset_name=re.sub('.*/', '', re.sub('.csv', '', self.data_file))
-		self.output=self.output_dir+self.dataset_name+'.csv'
+		self.output_dir=out_dir+"/"
+		datafname=re.sub('.*/', '', re.sub('.csv', '', self.data_file))
+		sourcesfname=re.sub('.*/', '', re.sub('.csv', '', self.sources_file))
+		if self.aux_toggle :
+			auxfname=re.sub('.*/', '', re.sub('.csv', '', self.aux_file))
+			self.dataset_name=datafname+"_"+sourcesfname+"_"+auxfname
+		else :
+			self.dataset_name=datafname+"_"+sourcesfname
+		self.output_dir=self.output_dir+self.dataset_name
+		Path(self.output_dir).mkdir(parents=True, exist_ok=True)
+		self.output=self.output_dir+'/results.csv'
 		print("Output file: ")
 		print(self.output)
 		print()
@@ -140,33 +315,63 @@ class Model:
 
 	def set_up_data(self) :
 
+		if self.initialized==True:
+			return
+		else:
+			self.initialized=True
+
 		if self.aux_toggle :
 			model_definition_preregex = self.model_definition
-			model_derivatives_preregex = self.model_derivatives.copy()
 			model_aux_pars_set = set(re.findall('[A-Z]',model_definition_preregex))
 			for char in ['S','M']:
 				if char in model_aux_pars_set: model_aux_pars_set.remove(char)
 			if model_aux_pars_set != set(self.aux_pars) :
-				print("Scream WTF")
+				print("ERROR: Something's wrong with aux par definitions.")
 
 			for i, auxpar in enumerate(self.aux_pars):
-				self.model_definition = re.sub(r'\b'+str(auxpar)+r'\b','aux['+str(i)+']',self.model_definition)
-				for j in range(len(self.model_derivatives)) :
-					self.model_derivatives[j] = re.sub(r'\b'+str(auxpar)+r'\b','aux['+str(i)+']',self.model_derivatives[j])
+				self.model_definition = re.sub(r'\b'+str(auxpar)+r'\b\[i\]','aux[i]['+str(i)+']',self.model_definition)
 			for i, auxvar in enumerate(self.aux_vars):
 				self.model_definition = re.sub(r'\b'+str(auxvar)+r'\b','r['+str(i)+']',self.model_definition)
-				for j in range(len(self.model_derivatives)) :
-					self.model_derivatives[j] = re.sub(r'\b'+str(auxvar)+r'\b','r['+str(i)+']',self.model_derivatives[j])
+
+			strM0=''
+			for i in range(len(self.sources_list)):
+				strM0+='S[i]['+str(i)+']*f['+str(i)+']+'
+			strM0 = strM0[:-1]
+			self.model_definition = re.sub('M0\[i\]',strM0,self.model_definition)
+
+			self.sym_model_definition = re.sub(r'\[(\d*)\]',r'\1',self.model_definition)
+			self.sym_model_definition = re.sub('\[i\]','',self.sym_model_definition)
+
+			self.sym_model_derivatives=[]
+			self.model_derivatives.clear()
+			str_symbols=''
+			for i in range(len(self.sources_list)):
+				str_symbols+='S'+str(i)+' '
+			for i in range(len(self.aux_pars)):
+				str_symbols+='aux'+str(i)+' '
+			str_symbols = str_symbols[:-1]
+			sym_vars = sympy.symbols(str_symbols)
+			for var in sym_vars:
+				dvardM = str(sympy.diff(self.sym_model_definition,var))
+				self.sym_model_derivatives.append(dvardM)
+				dvardM = re.sub(r'f(\d*)',r'f[\1]',dvardM)
+				dvardM = re.sub(r'r(\d*)',r'r[\1]',dvardM)
+				dvardM = re.sub(r'aux(\d*)',r'aux[i][\1]',dvardM)
+				dvardM = re.sub(r'S(\d*)',r'S[i][\1]',dvardM)
+				self.model_derivatives.append(dvardM)
 
 			print()
 			print("Model equation")
 			print("Before regex:\t",model_definition_preregex)
 			print("After regex:\t",self.model_definition)
+			print("Symbolic:\t",self.sym_model_definition)
 			print()
 			print("and derivatives")
-			print("Before regex:\t",model_derivatives_preregex)
+			print("Symbolic:\t",self.sym_model_derivatives)
 			print("After regex:\t",self.model_derivatives)
 			print()
+
+		#model_pars = symbols()
 
 		self.par_list = self.sources_list + self.aux_pars
 		self.var_list = self.sources_list + self.aux_vars
@@ -180,15 +385,19 @@ class Model:
 
 		self.sources=np.zeros(shape=(self.nisotopes,self.nsources),dtype='double')
 		self.sources_stdev=np.zeros(shape=(self.nisotopes,self.nsources),dtype='double')
+		self.sources_delta=np.zeros(shape=(self.nisotopes,self.nsources),dtype='double')
 		for i,iso in enumerate(self.isotopes_list):
 			for j,src in enumerate(self.sources_list):
-				self.sources[i][j]=self.df_sources.loc[ (self.df_sources['isotope']==iso) & (self.df_sources['source']==src) ].iloc[0]['value']
-				self.sources_stdev[i][j]=self.df_sources.loc[ (self.df_sources['isotope']==iso) & (self.df_sources['source']==src) ].iloc[0]['stdev']
+				self.sources[i][j]=self.df_sources.loc[ (self.df_sources['source']==src) ].iloc[0][iso]
+				self.sources_stdev[i][j]=self.df_sources.loc[ (self.df_sources['source']==src) ].iloc[0]["sigma("+iso+")"]
+				self.sources_delta[i][j]=self.df_sources.loc[ (self.df_sources['source']==src) ].iloc[0]["delta("+iso+")"]
 
 		print("self.sources")
 		print(self.sources)
 		print("self.sources_stdev")
 		print(self.sources_stdev)
+		print("self.sources_delta")
+		print(self.sources_delta)
 		print()
 				
 		if self.aux_toggle:
@@ -197,15 +406,18 @@ class Model:
 
 			print('Numer of auxiliary variables:',self.nauxvars)
 
-			self.aux=np.zeros(shape=(self.nauxpars,self.nisotopes),dtype='double')
-			self.aux_stdev=np.zeros(shape=(self.nauxpars,self.nisotopes),dtype='double')
-			for j,nm in enumerate(self.aux_pars):
-				for i,iso in enumerate(self.isotopes_list):
-					self.aux[j][i]=self.df_aux.loc[ (self.df_aux['isotope']==iso) & (self.df_aux['name']==nm)].iloc[0]['value']
-					self.aux_stdev[j][i]=self.df_aux.loc[ (self.df_aux['isotope']==iso) & (self.df_aux['name']==nm) ].iloc[0]['stdev']
+			self.aux=np.zeros(shape=(self.nisotopes,self.nauxpars),dtype='double')
+			self.aux_stdev=np.zeros(shape=(self.nisotopes,self.nauxpars),dtype='double')
+			self.aux_delta=np.zeros(shape=(self.nisotopes,self.nauxpars),dtype='double')
+			for i,iso in enumerate(self.isotopes_list):
+				for j,nm in enumerate(self.aux_pars):
+					self.aux[i][j]=self.df_aux.loc[ (self.df_aux['name']==nm)].iloc[0][iso]
+					self.aux_stdev[i][j]=self.df_aux.loc[ (self.df_aux['name']==nm) ].iloc[0]["sigma("+iso+")"]
+					self.aux_delta[i][j]=self.df_aux.loc[ (self.df_aux['name']==nm) ].iloc[0]["delta("+iso+")"]
 
 			print("self.aux:", self.aux)
 			print("self.aux_stdev:", self.aux_stdev)
+			print("self.aux_delta:", self.aux_delta)
 			print()
 
 		if self.model_derivatives==[]:
@@ -223,8 +435,8 @@ class Model:
 			self.sigmaPar[self.sources_list[j]] = [self.sources_stdev[i][j] for i in range(self.nisotopes)]
 			self.dMdPar[self.sources_list[j]] = self.model_derivatives[j]
 		for j in range(self.nauxpars) :
-			self.mapPar[self.aux_pars[j]] = [self.aux[j][i] for i in range(self.nisotopes)]
-			self.sigmaPar[self.aux_pars[j]] = [self.aux_stdev[j][i] for i in range(self.nisotopes)]
+			self.mapPar[self.aux_pars[j]] = [self.aux[i][j] for i in range(self.nisotopes)]
+			self.sigmaPar[self.aux_pars[j]] = [self.aux_stdev[i][j] for i in range(self.nisotopes)]
 			self.dMdPar[self.aux_pars[j]] = self.model_derivatives[self.nsources + j]
 
 		print("self.mapPar: ",self.mapPar)
@@ -232,31 +444,72 @@ class Model:
 		print("self.dMdPar: ",self.dMdPar)
 		print()
 
+		self.xd1 = [ [] for i in range(self.nvariables)]
+
+		if len(self.axes_labels)==0:
+			self.axes_labels = self.isotopes_list.copy()
+
+
+	def sim_finished(self,group,f_out) :
+		xdata=self.xd1
+		print("Simulation has finished.")
+
+		print("Output directory:", self.data_file)
+
+		print("Results:")
+		print("var.", "mean", "median", "stdev","lim_low","lim_up",sep='\t')
+
+		if self.plotting_switch :
+			self.plotter.draw_final_dists(xdata,self)
+			self.plotter.finished_plotting(self,group)
+		else :
+			self.plotter = Plotter()
+			self.plotter.draw_only_at_end(self,group)
+
+		plt.close('all')
+
+		nbins=10000
+		f_out.write(str(group)+self.default_delimiter)
+		for i,var in enumerate(self.var_list) :
+
+			xhist, xbins = np.histogram(xdata[i], bins=nbins, range=(0,1), density=True)
+			bincentres = [(xbins[i]+xbins[i+1])/2. for i in range(len(xbins)-1)]
+			xcum = np.cumsum(xhist)
+			xcum /= nbins
+
+			xcum_low = xcum - (0.5-0.341)
+			xcum_high = xcum - (0.5+0.341)
+			lim_low = np.where(np.diff(np.sign(xcum_low)))[0]
+			lim_high = np.where(np.diff(np.sign(xcum_high)))[0]
+
+			err_low = lim_low[0]/nbins
+			err_high = lim_high[0]/nbins
+
+			print("f_"+var, "{:.4f}".format(mean(xdata[i])), "{:.4f}".format(median(xdata[i])), "{:.4f}".format(std(xdata[i])), "{:.4f}".format(err_low), "{:.4f}".format(err_high),sep='\t')
+
+			f_out.write("{:.6f}".format(mean(xdata[i])))
+			f_out.write(self.default_delimiter)
+			f_out.write("{:.6f}".format(median(xdata[i])))
+			f_out.write(self.default_delimiter)
+			f_out.write("{:.6f}".format(std(xdata[i])))
+			f_out.write(self.default_delimiter)
+			f_out.write("{:.6f}".format(err_low))
+			f_out.write(self.default_delimiter)
+			f_out.write("{:.6f}".format(err_high))
+			f_out.write(self.default_delimiter)
+
+		print()
+		f_out.write("\n")
+
+		for row in self.xd1:
+			row.clear()
+
 
 	def run_model(self) :
 
+		self.is_finished=False
+
 		# -------------------------------------------------------------------------------------------------
-		# setting up the plots
-
-		# ion for live updates
-		if self.plotting_switch_1 or self.plotting_switch_2:
-			plt.ion()
-
-		if self.plotting_switch_1:
-			# figure 1 -- the chains
-			fig, ax = plt.subplots(self.nvariables, sharex=True)
-
-		if self.plotting_switch_2:
-			# figure 2 -- the 1D histograms and correlation plots
-			fig1d, ax1d = plt.subplots(self.nvariables,self.nvariables,figsize=(2*self.nvariables,2*self.nvariables))
-			fig1d.subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.90, wspace=0., hspace=0.)
-
-		if self.plotting_switch_1:
-			# figure 3 -- 2D path of isotope signatures
-			fig2d, ax2d = plt.subplots(1,2*self.nisotopes-3,figsize=(1+(2*self.nisotopes-3)*4,4))
-			fig2d.subplots_adjust(left=0.15/(2*self.nisotopes-3),right=0.95,bottom=0.13,top=0.95)
-			if not hasattr(ax2d, "__getitem__") :
-				ax2d = [ax2d]
 
 		# -------------------------------------------------------------------------------------------------
 		# -------------------------------------------------------------------------------------------------
@@ -275,16 +528,23 @@ class Model:
 
 		# colnames refer to the columns written into the output file
 		# this includes: auxiliary variables, sources fractions, resulting isotope yields
-		colnames= self.aux_vars
-		colnames.extend(self.sources_list)
-		colnames.extend(self.isotopes_list)
+		colnames= self.var_list
 
-		f_out.write("group\t")
-		f_out.write("case\t")
+		f_out.write("group"+self.default_delimiter)
+		#print("var.", "mean", "median", "stdev","lim_low","lim_up",sep='\t')
 		for cl in colnames:
-			f_out.write("mean_"+cl+"\t")
-			f_out.write("stdev_"+cl+"\t")
+			f_out.write("mean_"+cl+self.default_delimiter)
+			f_out.write("median_"+cl+self.default_delimiter)
+			f_out.write("stdev_"+cl+self.default_delimiter)
+			f_out.write("lim_low_"+cl+self.default_delimiter)
+			f_out.write("lim_up_"+cl+self.default_delimiter)
 		f_out.write("\n")
+
+
+		if self.plotting_switch :
+			self.plotter = Plotter()
+			self.plotter.switch_1=self.plotting_switch
+			self.plotter.switch_2=self.plotting_switch
 
 		print()
 		print("--------------------------------------------------------------------------------------------------------")
@@ -299,114 +559,25 @@ class Model:
 		print("--------------------------------------------------------------------------------------------------------")
 		print("--------------------------------------------------------------------------------------------------------")
 
+		self.abort=False
+
+		self.ngroups = len(self.df['group'].unique())
+
 		# for each group in the input data
-		for group in self.df['group'].unique() :
+		for gi,group in enumerate(self.df['group'].unique()) :
 
-			# let's first set up the plots
+			if self.abort==True:
+				break
 
-			# beware of this:
-			# 
-			# [stackoverflow.com/questions/2397141]
-			# 
-			# >>> a = [[0]*3]*3
-			# >>> a
-			# [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-			# >>> a[0][0]=1
-			# >>> a
-			# [[1, 0, 0], [1, 0, 0], [1, 0, 0]]
-			# 
-			# 
-			# this works fine though: t = [ [0]*3 for i in range(3)]
-			# ----------------------------------
+			self.group_i=gi
+			self.group=group
 
-			if self.plotting_switch_1 or self.plotting_switch_2:
+			for row in self.xd1:
+				row.clear()
 
-				xdata = [0]
-				ydata = [ [0] for i in range(self.nvariables)]
-
-				xd2 = [ [] for i in range(self.nisotopes)]
-
-				xmin=[]
-				xmax=[]
-				for i in range(self.nisotopes):
-					xmin.append(min(self.sources[i])-7)
-					xmax.append(max(self.sources[i])+7)
-
-			if self.plotting_switch_1 :
-
-				line=[]
-				for i, a in enumerate(ax):
-					line_temp, = a.plot(xdata, ydata[i], linestyle='-', linewidth=1, alpha=1)
-					#a.set_xlim(0,1)
-					a.set_ylim(0,1)
-					a.set_ylabel(self.var_list[i])
-					line.append(line_temp)
-
-
-
-				# ----------------------------------
-
-
-				ld2 = []
-
-				#isotopes_list=["SP","d18O","d15N"]
-				counter=0
-				for i in range(self.nisotopes):
-					for j in range(i+1,self.nisotopes):
-						ax2d[counter].set_xlim(xmin[i],xmax[i])
-						ax2d[counter].set_ylim(xmin[j],xmax[j])
-						ax2d[counter].set_xlabel(self.isotopes_list[i]+r" [permil]")
-						ax2d[counter].set_ylabel(self.isotopes_list[j]+r" [permil]")
-
-						dfs=self.df.loc[self.df['group']==group]
-						ax2d[counter].errorbar(dfs[self.isotopes_list[i]].tolist(), dfs[self.isotopes_list[j]].tolist(),
-								       xerr=dfs["sigma("+self.isotopes_list[i]+")"].tolist(),
-								       yerr=dfs["sigma("+self.isotopes_list[j]+")"].tolist(),
-								       ecolor="black",
-								       mec="None",
-								       mfc="black",
-								       marker="o",
-								       linestyle='',
-								       alpha=1.,
-								)
-
-
-						for k in range(self.nsources) :
-							vx=self.sources[i][k]
-							sx=self.sources_stdev[i][k]
-							vy=self.sources[j][k]
-							sy=self.sources_stdev[j][k]
-							rect = Rectangle((vx-sx,vy-sy),2*sx,2*sy,linewidth=1,edgecolor='black',facecolor="black",alpha=0.2)
-							ax2d[counter].add_patch(rect)
-							ax2d[counter].text(vx-sx+0.5,vy-sy+0.5, self.sources_list[k], fontsize=12)
-
-						line_temp, = ax2d[counter].plot(xd2[i],xd2[j], linestyle='-', linewidth=1, alpha=1)
-						ld2.append(line_temp)
-
-						counter+=1
-
-			# ----------------------------------
-
-			if self.plotting_switch_2 :
-
-				xd1 = [ [] for i in range(self.nvariables)]
-				ld1 = []
-
-				# 1D histograms
-				for i in range(self.nvariables):
-					hist_temp = ax1d[i,i].hist(xd1[i], bins=25, range=(0,1))
-					ld1.append(hist_temp)
-
-				# 2D correlations plots
-				for i in range(self.nvariables-1):
-					for j in range(i+1,self.nvariables):
-						ax1d[i,j].plot(xd1[i],xd1[j],marker='o',linestyle='none',markersize=0.4)
-
-				# ----------------------------------
-
-
-				xd3 = [ [] for i in range(self.nisotopes)]
-				ld3 = []
+			# setting up the plots
+			if self.plotting_switch :
+				self.plotter.initialize_plots(self,group)
 
 			# ----------------------------------
 
@@ -416,16 +587,24 @@ class Model:
 
 
 
-
-
-			T=-1.
+			T=0
 
 			maxL=-1
 
-			Path(self.output_dir+"grouped_chains/"+self.dataset_name+"/").mkdir(parents=True, exist_ok=True)
-			self.data_file = self.output_dir+"grouped_chains/"+self.dataset_name+"/"+str(group)
+			self.data_file = self.output_dir+"/group_"+str(group)
 
-			f_row = open(self.data_file+".dat", "w")
+			f_row = open(self.data_file+".csv", "w")
+			# header:
+			for i in range(self.nauxvars):
+				f_row.write(self.aux_vars[i])
+				f_row.write(self.default_delimiter)
+			for i in range(self.nsources):
+				f_row.write(self.sources_list[i])
+				f_row.write(self.default_delimiter)
+			for i in range(self.nisotopes):
+				f_row.write(self.isotopes_list[i])
+				f_row.write(self.default_delimiter)
+			f_row.write('\n')
 
 			b=[]
 			sigma2_data=[0]*self.nisotopes # accumulated sigma^2 calculated from data uncertainties for each isotope
@@ -443,13 +622,18 @@ class Model:
 				for i in range(self.nisotopes):
 					sigma2_data[i] += row["sigma("+self.isotopes_list[i]+")"]**2
 
-			chain_counter=0
+			self.chain_counter=0
 
 			start = time.time()
 
 
 			# run random sampling niter times
-			for ii in range(self.niter):
+			for self.ii in range(self.niter):
+
+
+				if self.abort==True:
+					print("Model terminated by the user.")
+					break
 
 				# sample self.sources ratios from Dirichlet with the same means
 				f = np.random.dirichlet((1.,)*self.nsources)
@@ -463,100 +647,23 @@ class Model:
 				#  if L(i+1) < L(i)  ->  accept
 				#  if L(i+1) > L(i)  ->  accept with probability = L(i+1/L(i)
 
-				# for faster burnout the alpha is set to 1 in this period
-				alpha = 1 
+				alpha = np.random.uniform(0.0,1.0)
 
-				if (ii>self.burnout):
-					alpha = np.random.uniform(0.0,1.0)
-
-				if ii%10000==0:
-					print("iteration:\t",ii, "\t chain length:",chain_counter)
+				checkpoint = 100
+				if self.ii%checkpoint==0:
+					print("iteration:\t",self.ii, "\t chain length:",self.chain_counter, end='\t')
 
 					end = time.time()
-					print("time/10k iters:",end - start)
-					print("time/iteration:",(end - start)/10000)
+					print("time/"+str(checkpoint)+" iters: "+str("{:.3f}".format(end - start))+'s')
 					start = time.time()
 
-					if(ii==self.burnout):
+					if(self.ii==self.burnout):
 						print("end of burnout")
+						tstart = time.time()
 
-					#############################################################################
-					# plotting 
-
-					if self.plotting_switch_2 and ii > self.burnout and len(xd1[0])>1:
-
-						# 1D histograms
-						for i in range(self.nvariables):
-							ax1d[i,i].clear()
-						for i in range(self.nvariables):
-							ld1[i] = ax1d[i,i].hist(xd1[i], bins=25, color='C0', range=(0,1))
-							ax1d[i,i].set_xlim(-0.1,1.15)
-							#ax1d[i,i].text(0.7, 0.7,self.var_list[i],color='black',size=22,usetex=True,family='serif',transform=ax1d[i,i].transAxes)
-							ax1d[i,i].text(0.7, 0.7,self.var_list[i],color='black',size=22,family='serif',transform=ax1d[i,i].transAxes)
-						# 2D correlations plots
-						for i in range(self.nvariables-1):
-							for j in range(i+1,self.nvariables):
-								ax1d[i,j].clear()
-								#ax1d[i,j].hexbin(xd1[i], xd1[j], gridsize=30, bins='log', cmap='viridis', extent=[0,1,0,1])
-								ax1d[i,j].plot(xd1[j],xd1[i],marker='o',linestyle='none',color='black', markersize=0.4, alpha=0.5)
-								ax1d[i,j].set_xlim(-0.1,1.15)
-								ax1d[i,j].set_ylim(-0.1,1.15)
-
-						# 2D correlations text
-						for i in range(1,self.nvariables):
-							for j in range(0,i):
-								ax1d[i,j].clear()
-								corr = np.corrcoef(xd1[i],xd1[j])[0,1]
-								clr=""
-								if corr<0 :
-									clr="C0"
-								elif corr>0:
-									clr="C3"
-								sz=abs(corr)*10.+7.
-								#ax1d[i,j].text(0.3, 0.3,str("{:.2f}".format(corr)),color=clr,size=sz,usetex=True,family='serif')
-								ax1d[i,j].text(0.3, 0.3,str("{:.2f}".format(corr)),color=clr,size=sz,family='serif')
-								ax1d[i,j].set_xlim(-0.1,1.15)
-
-						# setting up ticks and labels
-						for i in range(self.nvariables-1):
-							ax1d[i,self.nvariables-1].yaxis.tick_right()
-
-						for j in range(0,self.nvariables):
-							ax1d[0,j].xaxis.tick_top()
-
-						for i in range(self.nvariables-1):
-							for j in range(i+1,self.nvariables-1):
-								#ax1d[i,j].set_xticklabels([])
-								#ax1d[i,j].set_xticks([])
-								ax1d[i,j].set_yticklabels([])
-								ax1d[i,j].set_yticks([])
-
-						# 2D correlations text
-						for i in range(1,self.nvariables-1):
-							for j in range(0,i):
-								ax1d[i,j].set_xticklabels([])
-								ax1d[i,j].set_xticks([])
-						for i in range(1,self.nvariables):
-							for j in range(0,i):
-								ax1d[i,j].set_yticklabels([])
-								ax1d[i,j].set_yticks([])
-
-						for i in range(1,self.nvariables-1):
-							ax1d[i,i].set_xticklabels([])
-							ax1d[i,i].set_xticks([])
-						for i in range(self.nvariables):
-							yticks = ax1d[i,i].yaxis.get_major_ticks() 
-							yticks[0].label1.set_visible(False)
-
-						fig1d.canvas.draw()
-						fig1d.canvas.flush_events()
-
-					#############################################################################
-
-					if (chain_counter >= self.max_chain_entries):
+					if (self.chain_counter >= self.max_chain_entries):
 						print("Terminating loop - already have enough in the chains.")
 						break
-
 
 
 
@@ -574,6 +681,8 @@ class Model:
 				for i in range(self.nisotopes):
 					for j in range(self.nsources):
 						M0[i] += f[j]*self.sources[i][j]
+
+				S = self.sources
 
 				# Calculation of M
 				# using definition given in self.model_definition
@@ -596,129 +705,102 @@ class Model:
 				# 
 				# it has a form of: sqrt( sum_i( dM/dPar_i sigma(Par_i) )  )
 				# plus contribution from measurement errors
-				#
+				
 				M_stdev=np.zeros(shape=(self.nisotopes),dtype='double')
 
 				for i in range(self.nisotopes):
-					M_stdev[i] += sigma2_data[i] # recent addition! (23.02.2021)
+					# measured data uncertainty
+					M_stdev[i] += sigma2_data[i]
 
 					for par in self.mapPar:
 						M_stdev[i] += (eval(self.dMdPar[par])*self.sigmaPar[par][i])**2
 						
 					M_stdev[i]=np.sqrt(M_stdev[i])
 
-				# for each row in the dataframe subset
-				for b_k in b:
-					for i in range(self.nisotopes):
-						# multiplicative L
-						#L*=(1./M_stdev[i]/np.sqrt(2.*np.pi)) * np.exp( -(b_k[i]-M[i])**2./(2.*M_stdev[i]) )
-						# additive logL
-						L += -np.log(M_stdev[i]) - (b_k[i]-M[i])**2./(2.*M_stdev[i])
+				for i in range(self.nisotopes):
+					# Erf-like likelihood
+					if self.erf_toggle:
+						sumdS=0
+						for j,src in enumerate(self.sources_list):
+							sumdS+=eval(self.dMdPar[src]) * self.sources_delta[i][j]
+						for j,par in enumerate(self.aux_pars):
+							sumdS+=eval(self.dMdPar[par]) * self.aux_delta[i][j]
+						for b_k in b:
+							if sumdS==0:
+								L=0
+							else:
+								L *= (1./sumdS) * (  math.erf( (sumdS+M[i]-b_k[i]) / (sqrt(2)*M_stdev[i]) ) - math.erf( (-sumdS+M[i]-b_k[i]) / (sqrt(2)*M_stdev[i]) )  )
 
-				# initialize the threshold
-				if(ii==0):
-					T=L
+					# Gaussian-like likelihood
+					else :
+						for b_k in b:
+							L *= (1./M_stdev[i]/np.sqrt(2.*np.pi)) * np.exp( -(b_k[i]-M[i])**2./(2.*M_stdev[i]) )
 
 
 				# if Metropolis condition fulfilled
-				if (L-T) >= np.log(alpha) : 
 
+				# additive logL
+				#if (L-T) >= np.log(alpha) : 
 
-					#print("M0",M0)
-					#print("M",M)
-					#print("b",b)
-					#print("f",f)
-					#print("r",r)
-					#print()
+				# multiplicative L
+				#if L/T >= alpha : 
+				# changed to this because I wanted T to be zero initially:
+				if L >= alpha*T : 
+					
+					if self.ii>self.burnout:
+						if self.chain_counter%10==0:
+							tend = time.time()
+							print(" --> time/"+"10 chain entries: "+str("{:.3f}".format(tend - tstart))+'s')
+							tstart = time.time()
 
+							if self.plotting_switch and self.ii > self.burnout:
+								timer_checkpoint_start = time.time()
+								self.plotter.draw_at_checkpoint(self)
+								timer_checkpoint_end = time.time()
+								if(self.verbosity==2) :
+									print("checkpoint plotting [s]:",timer_checkpoint_end-timer_checkpoint_start)
 
-					if ii>self.burnout:
 						for i in range(self.nauxvars):
-							f_row.write( str(r[i])+"\t")
+							f_row.write( str(r[i])+self.default_delimiter)
 						for i in range(self.nsources):
-							f_row.write( str(f[i])+"\t")
-						for i in range(self.nisotopes-1):
-							f_row.write( str(M[i])+"\t")
-						f_row.write( str(M[-1]))
+							f_row.write( str(f[i])+self.default_delimiter)
+						for i in range(self.nisotopes):
+							f_row.write( str(M[i])+self.default_delimiter)
 						f_row.write( "\n")
-						chain_counter+=1
+						self.chain_counter+=1
 
 					# update the threshold
 					T=L
 
-					if self.plotting_switch_1 or self.plotting_switch_2:
-
+					if self.ii>self.burnout:
 						# arrays used for plotting:
-						xdata.append(xdata[-1]+1)
-						for i in range(self.nauxvars):
-							ydata[i].append(r[i])
 						for i in range(self.nsources):
-							ydata[i+self.nauxvars].append(f[i])
-						for i in range(self.nisotopes):
-							xd2[i].append(M[i])
+							self.xd1[i].append(f[i])
+						for i in range(self.nauxvars):
+							self.xd1[i+self.nsources].append(r[i])
 
-						if ii>self.burnout:
-							# arrays used for plotting:
-							for i in range(self.nauxvars):
-								xd1[i].append(r[i])
-							for i in range(self.nsources):
-								xd1[i+self.nauxvars].append(f[i])
+					if self.plotting_switch:
+						timer_metropolis_start = time.time()
+						self.plotter.draw_at_metropolis(self,M,r,f)
+						timer_metropolis_end = time.time()
+						if(self.verbosity==2) :
+							print("metropolis plotting [s]:",timer_metropolis_end-timer_metropolis_start)
 
-						if self.plotting_switch_1 :
-
-							# these are quick to update
-							for i, yi in enumerate(ydata):
-								line[i].set_xdata(xdata)
-								line[i].set_ydata(yi)
-								ax[i].set_xlim(0,xdata[-1])
-								ax[i].set_ylim(0,1.05)
-							fig.canvas.draw()
-							fig.canvas.flush_events()
-
-							if len(xd2[0]) > 1:
-								counter=0
-								for i in range(self.nisotopes):
-									for j in range(i+1,self.nisotopes):
-										ax2d[counter].plot([xd2[i][-2],xd2[i][-1]],[xd2[j][-2],xd2[j][-1]],color='C0',alpha=0.05)
-										ax2d[counter].plot([M[i]],[M[j]],color='C0',alpha=0.5,marker='o',markersize=0.2, linestyle='')
-										counter+=1
-							fig2d.canvas.draw()
-							fig2d.canvas.flush_events()
 
 			f_row.close()
 
+			if (self.chain_counter < self.max_chain_entries and not self.abort):
+				print("Terminating - reached limit of max iterations.")
+			self.sim_finished(group,f_out)
 
-			# calculate the means and stddevs from the markov chains that we've saved before
-			df_temp = pd.read_csv(self.data_file+".dat", skiprows = 0, names=colnames, header=None, delimiter="\t")
-			means={}
-			stdevs={}
-			for cl in colnames:
-				means[cl]=df_temp[cl].mean()
-				stdevs[cl]=df_temp[cl].std()
-
-
-			# in the final output file save firstly the interation which yielded the highest likelihood
-			# and then also the means and stddevs obtained from Markov chain
-			f_out.write(str(group)+"\t")
-			for cl in colnames:
-				f_out.write(str(means[cl])+"\t")
-				f_out.write(str(stdevs[cl])+"\t")
-			f_out.write("\n")
-
-			if self.plotting_switch_1:
-				fig.savefig(self.data_file+"_convergence.png")
-				fig2d.savefig(self.data_file+"_path2D.png")
-				for i in range(self.nvariables):
-					ax[i].clear()
-				for i in range(len(ax2d)):
-					ax2d[i].clear()
-			if self.plotting_switch_2:
-				fig1d.savefig(self.data_file+"_hist1D.png")
-				for i in range(self.nvariables):
-					for j in range(self.nvariables):
-						ax1d[i,j].clear()
+			print("Finished for group ", group)
+			print()
 
 		f_out.close()
+		self.is_finished=True
+		if not self.abort:
+			print("All finished successfully!")
+			print()
 
 
 

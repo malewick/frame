@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<data>
+	<items>
+		<item name="data_file">input/2D_data.csv</item>
+		<item name="sources_file">input/2D_sources.csv</item>
+		<item name="aux_file">input/2D_frac_libreoffice.csv</item>
+	</items>
+</data>
