@@ -53,7 +53,7 @@ class Plotter:
 		if self.switch_1 and self.switch_2:
 			plt.ion()
 		else:
-			return
+			pass
 
 		if self.switch_1:
 			# figure 1 -- the chains
@@ -464,6 +464,8 @@ class Model:
 			self.plotter.finished_plotting(self,group)
 		else :
 			self.plotter = Plotter()
+			self.plotter.switch_1=False
+			self.plotter.switch_2=True
 			self.plotter.draw_only_at_end(self,group)
 
 		plt.close('all')
