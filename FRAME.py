@@ -30,6 +30,8 @@ from xml.dom import minidom
 
 import re
 
+from pathlib import Path
+
 
 class ModelWrapper(QThread, NDimModel.Model) :
 	"""
@@ -709,11 +711,11 @@ class MainWindow(QtWidgets.QMainWindow):
 		if self.plotting_check_box.isChecked():
 			self.plotting_check_box.setStyleSheet("background-color : skyblue")
 			self.plotting_check_box.setText("Batch mode: ON ");
-			self.mcmc_model.plotting_switch=True
+			self.mcmc_model.plotting_switch=False
 		else:
 			self.plotting_check_box.setStyleSheet("background-color : lightgrey")
 			self.plotting_check_box.setText("Batch mode: OFF");
-			self.mcmc_model.plotting_switch=False
+			self.mcmc_model.plotting_switch=True
 
 	def show_preferences(self):
 		print("showing preferences")
@@ -789,7 +791,6 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.mcmc_model.default_delimiter = self.lineEdit_1.text()
 		self.preferences_window.close()
 
-
 	def show_plot_settings(self):
 		print("show plot settings")
 		self.settings_window = QtWidgets.QWidget()
@@ -818,10 +819,35 @@ class MainWindow(QtWidgets.QMainWindow):
 		hlayout.addWidget(cancel_button)
 		hlayout.addWidget(ok_button)
 
+
+		font_cb = QtWidgets.QComboBox()
+		matplotlib.font_manager.findSystemFonts(fontpaths=None, fontext='ttf')
+		font_list = matplotlib.font_manager.get_fontconfig_fonts()
+		self.font_names=[]
+		for f in font_list:
+			if "NotoColorEmoji" in f:
+				continue
+			fshort = matplotlib.font_manager.FontProperties(fname=f).get_name()
+			self.font_names.append(fshort)
+		self.font_names=list(set(self.font_names))
+		self.font_names.sort()
+		font_cb.addItems(self.font_names)
+		self.selected_font=None
+		font_cb.currentIndexChanged.connect(self.font_selected)
+
+		self.font_sample = MplCanvas(self.settings_window,width=1.0,height=0.3,dpi=100)
+		self.font_sample.axes.text(0.1,0.1,"sample text")
+		self.font_sample.axes.axis('off')
+
 		layout.addLayout(formLayout)
 		layout.addLayout(hlayout)
+		layout.addWidget(font_cb)
+		layout.addWidget(self.font_sample)
 		self.settings_window.setLayout(layout)
 		self.settings_window.show()
+
+
+
 
 	def close_plot_settings(self):
 		print("Closing plotting settings...")
@@ -830,6 +856,10 @@ class MainWindow(QtWidgets.QMainWindow):
 	def accept_plot_settings(self):
 		print("Accept and close plotting settings...")
 		self.mcmc_model.axes_labels = self.latex_labels.copy()
+
+		if self.selected_font != None:
+			print('selected_font:', self.selected_font)
+			matplotlib.rcParams['font.family']=self.selected_font
 
 		if self.ndim==2 :
 			self.sc1.axes.set_xlabel(self.latex_labels[0])
@@ -848,7 +878,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		self.settings_window.close()
 
-
+	def font_selected(self, ind):
+		self.selected_font=self.font_names[ind]
+		self.font_sample.axes.clear()
+		self.font_sample.axes.text(0.1,0.1,"sample text",fontfamily=self.selected_font)
+		self.font_sample.axes.axis('off')
+		self.font_sample.figure.canvas.draw()
 
 	def clear_clicked(self) :
 		self.model1.reset()
@@ -861,6 +896,18 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.sc1.figure.canvas.draw()
 		self.sc2.figure.canvas.draw()
 		self.sc3.figure.canvas.draw()
+
+		self.ledit_model.setText("")
+		self.ledit_derivatives.setText("")
+		for ql in self.iso_qlabels:
+			ql.setText("")
+		for ql in self.src_qlabels:
+			ql.setText("")
+		for ql in self.auxvar_qlabels:
+			ql.setText("")
+		for ql in self.aux_qlabels:
+			ql.setText("")
+
 
 
 	def save_xml_clicked(self) :
@@ -900,9 +947,10 @@ class MainWindow(QtWidgets.QMainWindow):
 		print("Loading from xml file")
 		fileName = QtWidgets.QFileDialog.getOpenFileName(self,
 				"Open File", "./input/", "XML Files *.xml")
-		print(fileName[0])
-		self.load_from_xml(fileName[0])
-		
+		if(fileName[0]!='') :
+			self.clear_clicked()
+			print(fileName[0])
+			self.load_from_xml(fileName[0])
 
 	def load_from_xml(self, xml_file):
 		tree = ET.parse(xml_file)
@@ -949,10 +997,10 @@ class MainWindow(QtWidgets.QMainWindow):
 			self.layout_dropdown.removeWidget(widgetToRemove)
 			widgetToRemove.setParent(None)
 
-		self.var_qlabels=[]
+		self.iso_qlabels.clear()
 		for v in self.mcmc_model.isotopes_list:
-			self.var_qlabels.append(QtWidgets.QLabel(v))
-		for ql in self.var_qlabels:
+			self.iso_qlabels.append(QtWidgets.QLabel(v))
+		for ql in self.iso_qlabels:
 			self.layout_dropdown.addWidget(ql)
 
 		self.ndim = len(self.mcmc_model.isotopes_list)
@@ -1020,6 +1068,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		self.aux_file=filename
 		self.mcmc_model.load_aux(filename)
+		self.mcmc_model.initialized=False
 		self.mcmc_model.set_up_data()
 
 		self.ledit_model.setText("M = " + self.mcmc_model.model_definition);
