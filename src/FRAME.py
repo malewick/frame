@@ -913,7 +913,7 @@ class MainWindow(QtWidgets.QMainWindow):
 	def save_xml_clicked(self) :
 		print("Saving xml file")
 		fileName = QtWidgets.QFileDialog.getSaveFileName(self,
-				"Save File", "./input/", "XML Files *.xml")
+				"Save File", "../input/", "XML Files *.xml")
 		print(fileName)
 		self.save_to_xml(fileName[0])
 
@@ -946,7 +946,7 @@ class MainWindow(QtWidgets.QMainWindow):
 	def load_xml_clicked(self) :
 		print("Loading from xml file")
 		fileName = QtWidgets.QFileDialog.getOpenFileName(self,
-				"Open File", "./input/", "XML Files *.xml")
+				"Open File", "../input/", "XML Files *.xml")
 		if(fileName[0]!='') :
 			self.clear_clicked()
 			print(fileName[0])
@@ -974,7 +974,7 @@ class MainWindow(QtWidgets.QMainWindow):
 	def load_data_clicked(self) :
 		print("Loading data on measurements...")
 		fileName = QtWidgets.QFileDialog.getOpenFileName(self,
-				"Open File", "./input/", "CSV Files *.csv")
+				"Open File", "../input/", "CSV Files *.csv")
 		print(fileName[0])
 		self.load_data(fileName[0])
 
@@ -1016,7 +1016,7 @@ class MainWindow(QtWidgets.QMainWindow):
 	def load_sources_clicked(self) :
 		print("Loading data on sources...")
 		fileName = QtWidgets.QFileDialog.getOpenFileName(self,
-				"Open File", "./input/", "CSV Files *.csv")
+				"Open File", "../input/", "CSV Files *.csv")
 		self.load_sources(fileName[0])
 
 	def load_sources(self, filename) :
@@ -1059,7 +1059,7 @@ class MainWindow(QtWidgets.QMainWindow):
 	def load_aux_clicked(self) :
 		print("Loading aux data...")
 		fileName = QtWidgets.QFileDialog.getOpenFileName(self,
-				"Open File", "./input/", "CSV Files *.csv")
+				"Open File", "../input/", "CSV Files *.csv")
 
 		self.load_aux(fileName[0])
 
