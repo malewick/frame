@@ -344,7 +344,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.table3.setModel(self.model3)
 		self.table3.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents);
 
-		self.outdir = "./output/"
+		self.outdir = "../output/"
 
 		self.sc1 = MplCanvas(self, width=2.5, height=3, dpi=100)
 
