@@ -13,6 +13,12 @@ See all previous releases [here](https://github.com/malewick/frame/releases/).
 
 The sources and detailed installation instructions are given on the [github page](https://github.com/malewick/frame)
 
+## User Guide
+
+The user guide can be found under [this link](https://malewick.github.io/frame/)
+
+A more detailed scientific description is published here: [link to the paper]
+
 
 ## Discussion and bugs report
 
