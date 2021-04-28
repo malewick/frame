@@ -24,6 +24,14 @@ Install the packages listed in `requirements.txt` (either with conda or pip). Th
 python src/FRAME.py
 ``
 
+Alternatively you can run the code without the graphical interface with
+
+``
+python src/mxml.py
+``
+
+editing the imported `.xml` file accordingly.
+
 ## Docs and user guide
 
 The user guide can be found under [this link](https://malewick.github.io/frame/)
