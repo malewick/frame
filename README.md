@@ -7,11 +7,11 @@ Markov-chain Monte Carlo engine for calculation of isotope mixinng wrapped in a 
 See the [webpage](https://malewick.github.io/frame/) for a user guide, information of newest releases and more.
 
 ## Install
-# Executables
+### Executables
 - **Windows**: see the zipped executables in [releases](https://github.com/malewick/frame/releases/) (only Windows 10 compatible for now)
 - **Linux** and **OSX**: use `setup.py` (to be implemented)
 
-# Install from source
+### Install from source
 To get the sources from git do
 
 ``
