@@ -3,7 +3,10 @@
 
 Welcome to FRAME! A friendly graphical interface for calculation of isotope mixing.
 
-Windows 10 exectuables can be [downloaded from here](https://uniwroc-my.sharepoint.com/:f:/g/personal/242190_uwr_edu_pl/EvdCQvf0bkhPjwFl--SHFUQBkqrOz9ceQrW8PGpsUcnYsA?e=47scnV)
+Current release:
+ - **v0.5-beta** [link](https://github.com/malewick/frame/releases/tag/v0.5)
+
+See all previous releases [here](https://github.com/malewick/frame/releases/).
 
 In case of questions please contact the authors:
  - **Maciej Lewicki**, malewick[at]cern.ch
