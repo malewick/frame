@@ -9,7 +9,7 @@ See the [webpage](https://malewick.github.io/frame/) for a user guide, informati
 ## Install
 ### Executables
 - **Windows**: see the zipped executables in [releases](https://github.com/malewick/frame/releases/) (only Windows 10 compatible for now)
-- **Linux** and **OSX**: use `setup.py` (to be implemented)
+- **Linux** and **OSX**: no exectuables were prepared yet. Let us know if you wish to use our software on these platforms or run the code from sources as described below.
 
 ### Install from source
 To get the sources from git do
