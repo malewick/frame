@@ -13,17 +13,11 @@ from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
 
-
 import pandas as pd
 import numpy as np
 from numpy import *
 
 import sympy
-
-from multiprocessing import Process, Queue
-
-
-import NDimModel
 
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
@@ -31,6 +25,9 @@ from xml.dom import minidom
 import re
 
 from pathlib import Path
+
+# --- local modules
+import NDimModel
 
 
 class ModelWrapper(QThread, NDimModel.Model) :
@@ -1173,6 +1170,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 
-app = QtWidgets.QApplication(sys.argv)
-w = MainWindow()
-app.exec_()
+#app = QtWidgets.QApplication(sys.argv)
+#w = MainWindow()
+#app.exec_()
