@@ -15,22 +15,20 @@ See the [webpage](https://malewick.github.io/frame/) for a user guide, informati
 To get the sources from git do
 
 ``
-$ git clone https://github.com/malewick/frame.git
+$ git clone https://github.com/malewick/frame.git:
 ``
 
-Install the packages listed in `requirements.txt` (either with conda or pip). Then run
+Install the packages listed in `requirements.txt` (either with conda or pip). Then run:
 
 ``
-python src/FRAME.py
+python FRAME.py
 ``
 
-Alternatively you can run the code without the graphical interface with
+Alternatively you can run the code without the graphical interface with (see the source for details and `input` directory for some sample input files):
 
 ``
-python src/mxml.py
+python run_batch.py
 ``
-
-editing the imported `.xml` file accordingly.
 
 ## Docs and user guide
 
@@ -49,11 +47,8 @@ In the `src` directory:
 - `FRAME.py` is the main script producing the GUI.
 - `NDimModel.py` contains the implementation of the model and statstical calculations.
 - `TimeSeriesPlot.py`, `PathPlot.py`, `CorrelationPlot.py` are the classes with mpl plots implementation.
-- `mxml.py` is a simple script for running the model without the GUI, useful for batch (distributed) computing.
 
-`requirements.txt` lists all the necessary packages and versions (PySide2, pandas, numpy, sympy, matplotlib).
-
-`input` directory contains useful examples for running the code
+`requirements.txt` lists all the required packages and versions (PySide2, pandas, numpy, sympy, matplotlib).
 
 ## Attribution
 Please cite the following paper when using this code:
