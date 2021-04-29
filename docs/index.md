@@ -1,24 +1,43 @@
-## FRAME
-### FRactionation And Mixing Evaluation
+# FRAME
+## FRactionation And Mixing Evaluation
 
 Welcome to FRAME! A friendly graphical interface for calculation of isotope mixing.
+
+
+## Install
 
 Current release:
  - **v0.5-beta** [link](https://github.com/malewick/frame/releases/tag/v0.5)
 
 See all previous releases [here](https://github.com/malewick/frame/releases/).
 
-In case of questions please contact the authors:
- - **Maciej Lewicki**, malewick[at]cern.ch
- - **Dominika Lewicka-Szczebak**, dominika.lewicka-szczebak[at]uwr.edu.pl
- - **Grzegorz Skrzypek**, grzegorz.skrzypek[at]uwa.edu.au
+The sources and detailed installation instructions are given on the [github page](https://github.com/malewick/frame).
 
+## User Guide
+
+The user guide can be found under [this link](https://malewick.github.io/frame/).
+
+A more detailed scientific description is published here: [link to the paper].
+
+
+## Discussion and bugs report
+
+Our mailing list is at https://groups.google.com/g/frame-isotopes. In case of any questions regarding the program (underlying algorithms, usage, etc.) please write us there.
+
+Our issue tracker is at https://github.com/malewick/frame/issues. Please report any bugs that you find. 
+
+
+## Atribution
 To cite FRAME in publications use:
 
 [to be filled]
 
-A BibTeX entry for LaTeX users is:
 
-[to be filled]
+## License and Distribution
+FRAME is GPL3 licensed (see the [LICENSE file](https://github.com/malewick/frame/blob/main/LICENSE) for details). Please cite our work when using it in your work and also consider documenting and contributing all your changes back, so that we can incorporate it and all of us will benefit in the end.
 
-FRAME is BSD licensed, so you are free to use it whatever you like, be it academic, commercial, creating forks or derivatives, as long as you copy the BSD statement if you redistribute it (see the LICENSE.md file for details). That said, although not required, if it is convenient for you, please cite our work when using it in your work and also consider contributing all your changes back, so that we can incorporate it and all of us will benefit in the end.
+
+## Authors
+ - **Maciej Lewicki**, malewick[at]cern.ch
+ - **Dominika Lewicka-Szczebak**, dominika.lewicka-szczebak[at]uwr.edu.pl
+ - **Grzegorz Skrzypek**, grzegorz.skrzypek[at]uwa.edu.au
