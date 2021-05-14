@@ -15,7 +15,7 @@ The sources and detailed installation instructions are given on the [github page
 
 ## User Guide
 
-The user guide can be found under [this link](https://malewick.github.io/frame/).
+The user guide can be found under [this link](user_guide.md).
 
 A more detailed scientific description is published here: [link to the paper].
 
