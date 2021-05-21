@@ -1,0 +1,3 @@
+M0[i] + A[i] * log(r)										
+name	X	sigma(X)	delta(X)	Y	sigma(Y)	delta(Y)
+A	-5	1	0	-5	1	0

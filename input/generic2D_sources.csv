@@ -1,0 +1,4 @@
+source,X,sigma(X),delta(X),Y,sigma(Y),delta(Y)
+S1,0,1,0,0,1,0
+S2,10,1,0,30,1,0
+S3,20,1,0,0,1,0
