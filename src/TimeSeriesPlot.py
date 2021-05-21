@@ -27,15 +27,7 @@ class TimeSeriesPlot:
 		self.fig.canvas.draw()
 		self.fig.canvas.flush_events()
 
-
-	def update(self,model,M,r,f):
-		# arrays used for plotting:
-		self.xdata.append(self.xdata[-1]+1)
-		for i in range(model.nsources):
-			self.ydata[i].append(f[i])
-		for i in range(model.nauxvars):
-			self.ydata[i+model.nsources].append(r[i])
-
+	def update_graph(self,model):
 		pos_text=len(self.xdata)*0.85
 		if model.ii>=model.burnout and self.len_at_burnout==0:
 			self.len_at_burnout=len(self.xdata)
@@ -55,6 +47,18 @@ class TimeSeriesPlot:
 		self.ax[i].draw_artist(self.line[i])
 		self.fig.canvas.update()
 		self.fig.canvas.flush_events()
+
+
+	def update(self,model,M,r,f):
+		# arrays used for plotting:
+		self.xdata.append(self.xdata[-1]+1)
+		for i in range(model.nsources):
+			self.ydata[i].append(f[i])
+		for i in range(model.nauxvars):
+			self.ydata[i+model.nsources].append(r[i])
+
+		self.update_graph(model)
+
 
 	def save(self,filename) :
 		self.fig.savefig(filename+"markov_chain.png",dpi=300)

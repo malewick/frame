@@ -152,14 +152,14 @@ class MplCanvas(FigureCanvasQTAgg):
 
 	def plot_sources(self, df_model, arg1, arg2):
 
-		# plotting the sources with delta as rectangles 
+		# plotting the sources with spread as rectangles 
 		for j, tstr in enumerate(df_model["source"].unique()) :
 			vx=df_model.loc[(df_model['source'] == tstr)].iloc[0][arg1]
-			dx=df_model.loc[(df_model['source'] == tstr)].iloc[0]['delta('+arg1+')']
-			sx=df_model.loc[(df_model['source'] == tstr)].iloc[0]['sigma('+arg1+')']
+			dx=df_model.loc[(df_model['source'] == tstr)].iloc[0]['spread('+arg1+')']
+			sx=df_model.loc[(df_model['source'] == tstr)].iloc[0]['stdev('+arg1+')']
 			vy=df_model.loc[(df_model['source'] == tstr)].iloc[0][arg2]
-			dy=df_model.loc[(df_model['source'] == tstr)].iloc[0]['delta('+arg2+')']
-			sy=df_model.loc[(df_model['source'] == tstr)].iloc[0]['sigma('+arg2+')']
+			dy=df_model.loc[(df_model['source'] == tstr)].iloc[0]['spread('+arg2+')']
+			sy=df_model.loc[(df_model['source'] == tstr)].iloc[0]['stdev('+arg2+')']
 			print(vx,vy,dx,dy,sx,sy)
 			self.axes.errorbar(vx,vy,
 					       xerr=sx,
@@ -529,18 +529,18 @@ class MainWindow(QtWidgets.QMainWindow):
 		layout_aux = QtWidgets.QVBoxLayout()
 		label_model = QtWidgets.QLabel("Model equation:")
 		label_model.setFont(QtGui.QFont('Sans', 11)) 
-		label_derivatives = QtWidgets.QLabel("Model derivatives:")
-		label_derivatives.setFont(QtGui.QFont('Sans', 11)) 
+		#label_derivatives = QtWidgets.QLabel("Model derivatives:")
+		#label_derivatives.setFont(QtGui.QFont('Sans', 11)) 
 		self.ledit_model = QtWidgets.QLineEdit("");
 		self.ledit_model.setMinimumSize(200,25)
 		self.ledit_model.setReadOnly(True)
-		self.ledit_derivatives = QtWidgets.QLineEdit("");
-		self.ledit_derivatives.setMinimumSize(200,25)
-		self.ledit_derivatives.setReadOnly(True)
+		#self.ledit_derivatives = QtWidgets.QLineEdit("");
+		#self.ledit_derivatives.setMinimumSize(200,25)
+		#self.ledit_derivatives.setReadOnly(True)
 		layout_aux.addWidget(label_model)
 		layout_aux.addWidget(self.ledit_model)
-		layout_aux.addWidget(label_derivatives)
-		layout_aux.addWidget(self.ledit_derivatives)
+		#layout_aux.addWidget(label_derivatives)
+		#layout_aux.addWidget(self.ledit_derivatives)
 		layout_aux.addStretch(1)
 
 
@@ -895,7 +895,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.sc3.figure.canvas.draw()
 
 		self.ledit_model.setText("")
-		self.ledit_derivatives.setText("")
+		#self.ledit_derivatives.setText("")
 		for ql in self.iso_qlabels:
 			ql.setText("")
 		for ql in self.src_qlabels:
@@ -1047,10 +1047,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		self.ledit_model.setText("M[i] = M0[i]")
 
-		derivatives_string=""
-		for i, src in enumerate(self.mcmc_model.sources_list):
-			derivatives_string += "dM/d"+src+"="+"f["+str(i)+"]"+", "
-		self.ledit_derivatives.setText(derivatives_string[:-2])
+		#derivatives_string=""
+		#for i, src in enumerate(self.mcmc_model.sources_list):
+		#	derivatives_string += "dM/d"+src+"="+"f["+str(i)+"]"+", "
+		#self.ledit_derivatives.setText(derivatives_string[:-2])
 
 
 	def load_aux_clicked(self) :
@@ -1070,12 +1070,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		self.ledit_model.setText("M = " + self.mcmc_model.model_definition);
 		str_derivaties=""
-		for i, src in enumerate(self.mcmc_model.sources_list):
-			str_derivaties += "dM/d"+src+"="+self.mcmc_model.model_derivatives[i]+", "
-		for i, par in enumerate(self.mcmc_model.aux_pars):
-			str_derivaties += "dM/d"+par+"="+self.mcmc_model.model_derivatives[len(self.mcmc_model.sources_list)+i]+", "
+		#for i, src in enumerate(self.mcmc_model.sources_list):
+		#	str_derivaties += "dM/d"+src+"="+self.mcmc_model.model_derivatives[i]+", "
+		#for i, par in enumerate(self.mcmc_model.aux_pars):
+		#	str_derivaties += "dM/d"+par+"="+self.mcmc_model.model_derivatives[len(self.mcmc_model.sources_list)+i]+", "
 			
-		self.ledit_derivatives.setText(str_derivaties[:-2]);
+		#self.ledit_derivatives.setText(str_derivaties[:-2]);
 
 		self.df_auxs = self.mcmc_model.df_aux
 

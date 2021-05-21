@@ -111,9 +111,14 @@ class Plotter:
 		plt.show(block=True)
 
 	def draw_only_at_end(self,model,group):
-		self.switch_1=False
+		#self.switch_1=False
 		self.initialize_plots(model,group)
 		self.draw_at_checkpoint(model)
+		self.plot1.xdata = list(range(0,len(model.xd1[0])))
+		self.plot1.ydata = model.xd1[1:].copy()
+		self.plot1.ydata.append(model.xd1[0])
+		self.plot1.update_graph(model)
+		self.plot2.update_graph(model)
 		self.finished_plotting(model,group)
 
 
@@ -222,7 +227,7 @@ class Model:
 
 		self.isotopes_list=[]
 		for var in [*self.df.columns]:
-			if var!="group" and var!="label" and "sigma" not in var and var!="sample_id":
+			if var!="group" and var!="label" and "stdev" not in var and var!="sample_id":
 				self.isotopes_list.append(var)
 		print("isotopes_list: ",self.isotopes_list)
 		print()
@@ -241,11 +246,11 @@ class Model:
 		print("sources list:", self.sources_list)
 		print()
 
-		delta_sum=0
+		spread_sum=0
 		for iso in self.isotopes_list:
-			for delta in self.df_sources["delta("+iso+")"]:
-				delta_sum += delta
-		if delta_sum == 0:
+			for spread in self.df_sources["spread("+iso+")"]:
+				spread_sum += spread
+		if spread_sum == 0:
 			print("Using gaussian-like likelihood function.")
 			self.erf_toggle = False
 		else :
@@ -385,19 +390,19 @@ class Model:
 
 		self.sources=np.zeros(shape=(self.nisotopes,self.nsources),dtype='double')
 		self.sources_stdev=np.zeros(shape=(self.nisotopes,self.nsources),dtype='double')
-		self.sources_delta=np.zeros(shape=(self.nisotopes,self.nsources),dtype='double')
+		self.sources_spread=np.zeros(shape=(self.nisotopes,self.nsources),dtype='double')
 		for i,iso in enumerate(self.isotopes_list):
 			for j,src in enumerate(self.sources_list):
 				self.sources[i][j]=self.df_sources.loc[ (self.df_sources['source']==src) ].iloc[0][iso]
-				self.sources_stdev[i][j]=self.df_sources.loc[ (self.df_sources['source']==src) ].iloc[0]["sigma("+iso+")"]
-				self.sources_delta[i][j]=self.df_sources.loc[ (self.df_sources['source']==src) ].iloc[0]["delta("+iso+")"]
+				self.sources_stdev[i][j]=self.df_sources.loc[ (self.df_sources['source']==src) ].iloc[0]["stdev("+iso+")"]
+				self.sources_spread[i][j]=self.df_sources.loc[ (self.df_sources['source']==src) ].iloc[0]["spread("+iso+")"]
 
 		print("self.sources")
 		print(self.sources)
 		print("self.sources_stdev")
 		print(self.sources_stdev)
-		print("self.sources_delta")
-		print(self.sources_delta)
+		print("self.sources_spread")
+		print(self.sources_spread)
 		print()
 				
 		if self.aux_toggle:
@@ -408,16 +413,16 @@ class Model:
 
 			self.aux=np.zeros(shape=(self.nisotopes,self.nauxpars),dtype='double')
 			self.aux_stdev=np.zeros(shape=(self.nisotopes,self.nauxpars),dtype='double')
-			self.aux_delta=np.zeros(shape=(self.nisotopes,self.nauxpars),dtype='double')
+			self.aux_spread=np.zeros(shape=(self.nisotopes,self.nauxpars),dtype='double')
 			for i,iso in enumerate(self.isotopes_list):
 				for j,nm in enumerate(self.aux_pars):
 					self.aux[i][j]=self.df_aux.loc[ (self.df_aux['name']==nm)].iloc[0][iso]
-					self.aux_stdev[i][j]=self.df_aux.loc[ (self.df_aux['name']==nm) ].iloc[0]["sigma("+iso+")"]
-					self.aux_delta[i][j]=self.df_aux.loc[ (self.df_aux['name']==nm) ].iloc[0]["delta("+iso+")"]
+					self.aux_stdev[i][j]=self.df_aux.loc[ (self.df_aux['name']==nm) ].iloc[0]["stdev("+iso+")"]
+					self.aux_spread[i][j]=self.df_aux.loc[ (self.df_aux['name']==nm) ].iloc[0]["spread("+iso+")"]
 
 			print("self.aux:", self.aux)
 			print("self.aux_stdev:", self.aux_stdev)
-			print("self.aux_delta:", self.aux_delta)
+			print("self.aux_spread:", self.aux_spread)
 			print()
 
 		if self.model_derivatives==[]:
@@ -425,22 +430,22 @@ class Model:
 				self.model_derivatives.append("f["+str(i)+"]")
 
 		self.mapPar={}
-		self.sigmaPar={}
+		self.stdevPar={}
 		self.dMdPar={}
 		print("----")
 		print(self.sources_list)
 		print(self.model_derivatives)
 		for j in range(self.nsources) :
 			self.mapPar[self.sources_list[j]] = [self.sources[i][j] for i in range(self.nisotopes)]
-			self.sigmaPar[self.sources_list[j]] = [self.sources_stdev[i][j] for i in range(self.nisotopes)]
+			self.stdevPar[self.sources_list[j]] = [self.sources_stdev[i][j] for i in range(self.nisotopes)]
 			self.dMdPar[self.sources_list[j]] = self.model_derivatives[j]
 		for j in range(self.nauxpars) :
 			self.mapPar[self.aux_pars[j]] = [self.aux[i][j] for i in range(self.nisotopes)]
-			self.sigmaPar[self.aux_pars[j]] = [self.aux_stdev[i][j] for i in range(self.nisotopes)]
+			self.stdevPar[self.aux_pars[j]] = [self.aux_stdev[i][j] for i in range(self.nisotopes)]
 			self.dMdPar[self.aux_pars[j]] = self.model_derivatives[self.nsources + j]
 
 		print("self.mapPar: ",self.mapPar)
-		print("self.sigmaPar: ",self.sigmaPar)
+		print("self.stdevPar: ",self.stdevPar)
 		print("self.dMdPar: ",self.dMdPar)
 		print()
 
@@ -464,7 +469,7 @@ class Model:
 			self.plotter.finished_plotting(self,group)
 		else :
 			self.plotter = Plotter()
-			self.plotter.switch_1=False
+			self.plotter.switch_1=True
 			self.plotter.switch_2=True
 			self.plotter.draw_only_at_end(self,group)
 
@@ -607,7 +612,7 @@ class Model:
 			f_row.write('\n')
 
 			b=[]
-			sigma2_data=[0]*self.nisotopes # accumulated sigma^2 calculated from data uncertainties for each isotope
+			stdev2_data=[0]*self.nisotopes # accumulated stdev^2 calculated from data uncertainties for each isotope
 
 			print()
 			print("---------------------------------- GROUP",group,"-------------------------------------------")
@@ -620,7 +625,7 @@ class Model:
 				print("b: ",bi)
 
 				for i in range(self.nisotopes):
-					sigma2_data[i] += row["sigma("+self.isotopes_list[i]+")"]**2
+					stdev2_data[i] += row["stdev("+self.isotopes_list[i]+")"]**2
 
 			self.chain_counter=0
 
@@ -703,17 +708,17 @@ class Model:
 
 				# calculate standard deviations
 				# 
-				# it has a form of: sqrt( sum_i( dM/dPar_i sigma(Par_i) )  )
+				# it has a form of: sqrt( sum_i( dM/dPar_i stdev(Par_i) )  )
 				# plus contribution from measurement errors
 				
 				M_stdev=np.zeros(shape=(self.nisotopes),dtype='double')
 
 				for i in range(self.nisotopes):
 					# measured data uncertainty
-					M_stdev[i] += sigma2_data[i]
+					M_stdev[i] += stdev2_data[i]
 
 					for par in self.mapPar:
-						M_stdev[i] += (eval(self.dMdPar[par])*self.sigmaPar[par][i])**2
+						M_stdev[i] += (eval(self.dMdPar[par])*self.stdevPar[par][i])**2
 						
 					M_stdev[i]=np.sqrt(M_stdev[i])
 
@@ -722,9 +727,9 @@ class Model:
 					if self.erf_toggle:
 						sumdS=0
 						for j,src in enumerate(self.sources_list):
-							sumdS+=eval(self.dMdPar[src]) * self.sources_delta[i][j]
+							sumdS+=eval(self.dMdPar[src]) * self.sources_spread[i][j]
 						for j,par in enumerate(self.aux_pars):
-							sumdS+=eval(self.dMdPar[par]) * self.aux_delta[i][j]
+							sumdS+=eval(self.dMdPar[par]) * self.aux_spread[i][j]
 						for b_k in b:
 							if sumdS==0:
 								L=0

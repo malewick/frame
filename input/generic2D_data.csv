@@ -1,2 +1,2 @@
-group,X,Y,sigma(X),sigma(Y)
+group,X,Y,stdev(X),stdev(Y)
 1,10,10,1,1

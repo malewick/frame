@@ -19,7 +19,7 @@ class CorrelationPlot:
 		self.hist_line = []
 		# 1D histograms
 		for i in range(model.nvariables):
-			hist_temp = self.ax[i,i].hist([], bins=25, range=(0,1))
+			hist_temp = self.ax[i,i].hist([], bins=25, density=True, range=(0,1))
 			self.hist_line.append(hist_temp)
 		# ----------------------------------
 		self.artists_initialized=False
@@ -37,6 +37,8 @@ class CorrelationPlot:
 			maxy = max(maxy,self.ax[i,i].get_ylim()[1])
 		for i in range(model.nvariables):
 			self.ax[i,i].set_ylim(0.0,maxy)
+
+		self.ax[0,0].set_ylabel("entries")
 
 		# 2D correlations plots
 		for i in range(model.nvariables-1):

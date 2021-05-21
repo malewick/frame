@@ -17,8 +17,8 @@ class PathPlot :
 		xmin=[]
 		xmax=[]
 		for i in range(model.nisotopes):
-			xmin.append(min(model.sources[i])-max(max(model.sources_delta[i]),max(model.sources_stdev[i]))-2)
-			xmax.append(max(model.sources[i])+max(max(model.sources_delta[i]),max(model.sources_stdev[i]))+2)
+			xmin.append(min(model.sources[i])-max(max(model.sources_spread[i]),max(model.sources_stdev[i]))-2)
+			xmax.append(max(model.sources[i])+max(max(model.sources_spread[i]),max(model.sources_stdev[i]))+2)
 
 		self.fig, self.ax = plt.subplots(1,2*model.nisotopes-3,figsize=(((2*model.nisotopes-3))*2*self.base_size,2*(self.base_size)))
 		self.fig.subplots_adjust(left=0.22/(2*model.nisotopes-3),right=0.99,bottom=0.2,top=0.98, wspace=0.3)
@@ -39,8 +39,8 @@ class PathPlot :
 				self.ax[counter].set_ylabel(model.axes_labels[j])
 
 				self.ax[counter].errorbar(dfs[model.isotopes_list[i]].tolist(), dfs[model.isotopes_list[j]].tolist(),
-						       xerr=dfs["sigma("+model.isotopes_list[i]+")"].tolist(),
-						       yerr=dfs["sigma("+model.isotopes_list[j]+")"].tolist(),
+						       xerr=dfs["stdev("+model.isotopes_list[i]+")"].tolist(),
+						       yerr=dfs["stdev("+model.isotopes_list[j]+")"].tolist(),
 						       ecolor="black",
 						       mec="None",
 						       mfc="black",
@@ -63,9 +63,9 @@ class PathPlot :
 
 				for k in range(model.nsources) :
 					vx=model.sources[i][k]
-					sx=model.sources_delta[i][k]
+					sx=model.sources_spread[i][k]
 					vy=model.sources[j][k]
-					sy=model.sources_delta[j][k]
+					sy=model.sources_spread[j][k]
 					rect = Rectangle((vx-sx,vy-sy),2*sx,2*sy,linewidth=1,edgecolor='black',facecolor="black",alpha=0.2)
 					self.ax[counter].add_patch(rect)
 					self.ax[counter].text(vx-sx+0.5,vy-sy+0.5, model.sources_list[k], fontsize=12)
@@ -178,11 +178,7 @@ class PathPlot :
 		axes.set_xlim(xlimlow-10,xlimhigh+10)
 		axes.set_ylim(ylimlow-10,ylimhigh+10)
 
-
-	def update(self,model,M) :
-
-		for i in range(model.nisotopes):
-			self.xd2[i].append(M[i])
+	def update_graph(self,model) :
 
 		if len(self.xd2[0]) > 1:
 			counter=0
@@ -197,6 +193,14 @@ class PathPlot :
 
 		self.fig.canvas.update()
 		self.fig.canvas.flush_events()
+
+
+	def update(self,model,M) :
+
+		for i in range(model.nisotopes):
+			self.xd2[i].append(M[i])
+		self.update_graph(model)
+
 
 
 	def save(self,filename) :

@@ -1,4 +1,4 @@
-source,X,sigma(X),delta(X),Y,sigma(Y),delta(Y)
+source,X,stdev(X),spread(X),Y,stdev(Y),spread(Y)
 S1,0,0,1,0,0,1
 S2,10,0,1,30,0,1
 S3,20,0,1,0,0,1
