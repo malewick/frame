@@ -591,8 +591,6 @@ class Model:
 
 			T=0
 
-			maxL=-1
-
 			self.data_file = self.output_dir+"/group_"+str(group)
 
 			f_row = open(self.data_file+".csv", "w")
