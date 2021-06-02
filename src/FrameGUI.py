@@ -502,13 +502,29 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		label4 = QtWidgets.QLabel("Output directory: ");
 		self.lineEdit4 = QtWidgets.QLineEdit("./output/");
+		self.lineEdit4.setToolTip("Set output directory. Default is simply 'output'")
 		button4 = QtWidgets.QPushButton("Set...")
 		button4.clicked.connect(self.set_outdir)
+
+		label5 = QtWidgets.QLabel("Dataset name: ");
+		self.dataset_set=False
+		self.lineEdit5 = QtWidgets.QLineEdit("");
+		self.lineEdit5.setToolTip("Set a unique prefix for the output data. By deafult it will be made from input filenames.")
+		self.lineEdit5.editingFinished.connect(self.set_dataset_name)
+
+		label6 = QtWidgets.QLabel("Plots format: ");
+		self.myfmt_set=False
+		self.lineEdit6 = QtWidgets.QLineEdit("pdf,png");
+		self.lineEdit6.setToolTip("Set output plots format. Default is pdf and png. Supported formats: eps, jpeg, jpg, pdf, pgf, png, ps, raw, rgba, svg, svgz, tif, tiff")
+		self.lineEdit6.editingFinished.connect(self.set_format)
+
 		formLayout2 = QtWidgets.QFormLayout();
 		formLayout2.addRow(label4, self.lineEdit4)
+		formLayout2.addRow(label5, self.lineEdit5)
+		formLayout2.addRow(label6, self.lineEdit6)
 		layout_outdir = QtWidgets.QHBoxLayout()
 		layout_outdir.addLayout(formLayout2)
-		layout_outdir.addWidget(button4)
+		layout_outdir.addWidget(button4, alignment=QtCore.Qt.AlignTop)
 		#layout_outdir.addStretch(1)
 
 		self.plotting_check_box = QtWidgets.QPushButton("Batch mode: OFF", self);
@@ -1122,6 +1138,18 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.outdir = dirName
 		print("Output directory selected: ", self.outdir)
 
+	def set_dataset_name(self) :
+		if(self.lineEdit5.text()!="") :
+			self.dataset_set=True
+			self.dataset_name = self.lineEdit5.text()
+			print("dataset name set: ", self.dataset_name)
+
+	def set_format(self) :
+		if(self.lineEdit6.text()!="") :
+			self.myfmt = self.lineEdit6.text()
+			self.myfmt_set=True
+			print("plots will be saved in following formats: ", self.myfmt)
+
 
 	def run_model(self) :
 		self.tabs.setCurrentIndex(1)
@@ -1136,6 +1164,10 @@ class MainWindow(QtWidgets.QMainWindow):
 			model.set_up_data()
 
 		model.set_outdir(self.outdir)
+		if self.dataset_set:
+			model.dataset_name=self.dataset_name
+		if self.myfmt_set:
+			model.myfmt = self.myfmt
 
 		model.set_iterations(self.lineEdit1.text(), self.lineEdit2.text(), self.lineEdit3.text())
 

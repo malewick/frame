@@ -12,7 +12,7 @@ from matplotlib.patches import Rectangle
 class PathPlot :
 	def __init__(self,model,group):
 		self.base_size=1.5
-		self.xd2 = [ [] for i in range(model.nisotopes)]
+		self.xb2 = [ [] for i in range(model.nisotopes)]
 
 		xmin=[]
 		xmax=[]
@@ -58,6 +58,7 @@ class PathPlot :
 						       marker="o",
 						       linestyle='',
 						       alpha=1.,
+						       zorder=1,
 						)
 
 
@@ -70,7 +71,7 @@ class PathPlot :
 					self.ax[counter].add_patch(rect)
 					self.ax[counter].text(vx-sx+0.5,vy-sy+0.5, model.sources_list[k], fontsize=12)
 
-				line_temp, = self.ax[counter].plot(self.xd2[i],self.xd2[j], linestyle='-', linewidth=1, alpha=1)
+				line_temp, = self.ax[counter].plot(self.xb2[i],self.xb2[j],linewidth=0.1,color='C0',alpha=0.15)
 				self.ld2.append(line_temp)
 				line_temp2, = self.ax[counter].plot([],[],color='C0',alpha=0.5,marker='o',markersize=0.2, linestyle='')
 				self.ld22.append(line_temp2)
@@ -178,34 +179,64 @@ class PathPlot :
 		axes.set_xlim(xlimlow-10,xlimhigh+10)
 		axes.set_ylim(ylimlow-10,ylimhigh+10)
 
+	# this one is probably a little nicer, but it's also slower
+	#def update_graph(self,model) :
+
+	#	if len(self.xd2[0]) > 1:
+	#		counter=0
+	#		for i in range(model.nisotopes):
+	#			for j in range(i+1,model.nisotopes):
+	#				self.ld2[counter], = self.ax[counter].plot([self.xd2[i][-2],self.xd2[i][-1]],[self.xd2[j][-2],self.xd2[j][-1]],color='C0',alpha=0.05)
+	#				self.ld22[counter], = self.ax[counter].plot(self.xd2[i][-1],self.xd2[j][-1],color='C0',alpha=0.5,marker='o',markersize=0.2, linestyle='')
+	#				#self.ax[counter].draw_artist(self.ax[counter].patch)
+	#				self.ax[counter].draw_artist(self.ld2[counter])
+	#				self.ax[counter].draw_artist(self.ld22[counter])
+	#				counter+=1
+
+	#	self.fig.canvas.update()
+	#	self.fig.canvas.flush_events()
+
 	def update_graph(self,model) :
 
-		if len(self.xd2[0]) > 1:
-			counter=0
-			for i in range(model.nisotopes):
-				for j in range(i+1,model.nisotopes):
-					self.ld2[counter], = self.ax[counter].plot([self.xd2[i][-2],self.xd2[i][-1]],[self.xd2[j][-2],self.xd2[j][-1]],color='C0',alpha=0.05)
-					self.ld22[counter], = self.ax[counter].plot([M[i]],[M[j]],color='C0',alpha=0.5,marker='o',markersize=0.2, linestyle='')
-					#self.ax[counter].draw_artist(self.ax[counter].patch)
-					self.ax[counter].draw_artist(self.ld2[counter])
-					self.ax[counter].draw_artist(self.ld22[counter])
-					counter+=1
-
+		if len(self.xb2[0]) <= 1:
+			return
+		counter=0
+		for i in range(model.nisotopes):
+			for j in range(i+1,model.nisotopes):
+				self.ld2[counter].set_xdata(self.xb2[i])
+				self.ld2[counter].set_ydata(self.xb2[j])
+				self.ld22[counter].set_xdata(self.xb2[i])
+				self.ld22[counter].set_ydata(self.xb2[j])
+				counter+=1
 		self.fig.canvas.update()
+		self.fig.canvas.flush_events()
+
+
+	def draw_graph(self,model) :
+		self.xb2 = model.xb2
+		if len(self.xb2[0]) <= 1:
+			return
+		counter=0
+		for i in range(model.nisotopes):
+			for j in range(i+1,model.nisotopes):
+				self.ld2[counter], = self.ax[counter].plot(self.xb2[i],self.xb2[j],color='C0',alpha=0.15)
+				self.ld22[counter], = self.ax[counter].plot(self.xb2[i],self.xb2[j],color='C0',alpha=0.5,marker='o',markersize=0.2, linestyle='')
+				counter+=1
+		self.fig.canvas.draw()
 		self.fig.canvas.flush_events()
 
 
 	def update(self,model,M) :
 
 		for i in range(model.nisotopes):
-			self.xd2[i].append(M[i])
+			self.xb2[i].append(M[i])
 		self.update_graph(model)
 
 
 
-	def save(self,filename) :
-		self.fig.savefig(filename+"path2D.png",dpi=300)
-		self.fig.savefig(filename+"path2D.pdf")
+	def save(self,filename,fmt) :
+		for ext in fmt.split(","):
+			self.fig.savefig(filename+"path2D."+ext,dpi=300)
 		for i in range(len(self.ax)):
 			self.ax[i].clear()
 

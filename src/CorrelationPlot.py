@@ -136,10 +136,11 @@ class CorrelationPlot:
 		#ax.clabel(cset, inline=1, fontsize=10)
 
 
-	def save(self,filename):
+	def save(self,filename,fmt):
 
-		self.fig.savefig(filename+"correlations.png",dpi=300)
-		self.fig.savefig(filename+"correlations.pdf")
+		for ext in fmt.split(","):
+			self.fig.savefig(filename+"correlations."+ext,dpi=300)
+
 		for i in range(len(self.ax)):
 			for j in range(len(self.ax[i])):
 				self.ax[i,j].clear()

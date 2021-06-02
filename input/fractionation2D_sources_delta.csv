@@ -1,4 +1,4 @@
-source,X,stdev(X),spread(X),Y,stdev(Y),spread(Y)
+source,I1,stdev(I1),spread(I1),I2,stdev(I2),spread(I2)
 S1,0,0,1,0,0,1
 S2,10,0,1,30,0,1
 S3,20,0,1,0,0,1

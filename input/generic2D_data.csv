@@ -1,2 +1,2 @@
-group,X,Y,stdev(X),stdev(Y)
+group,I1,I2,stdev(I1),stdev(I2)
 1,10,10,1,1

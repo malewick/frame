@@ -22,22 +22,19 @@ class TimeSeriesPlot:
 			self.vline.append(vline_temp)
 		self.ttext = self.ax[0].text(0.0,0.6, "burnout", fontsize=10)
 		self.ttext.set_bbox(dict(facecolor='white', alpha=0.7, edgecolor=None, linewidth=0))
-		self.len_at_burnout=0
 
 		self.fig.canvas.draw()
 		self.fig.canvas.flush_events()
 
 	def update_graph(self,model):
 		pos_text=len(self.xdata)*0.85
-		if model.ii>=model.burnout and self.len_at_burnout==0:
-			self.len_at_burnout=len(self.xdata)
 		if model.ii>model.burnout:
-			pos_text=max(self.len_at_burnout - 0.15*len(self.xdata),0.0)
+			pos_text=max(model.burnout_chain_len - 0.15*len(self.xdata),0.0)
 
 		for i, yi in enumerate(self.ydata):
 			self.line[i].set_xdata(self.xdata)
 			self.line[i].set_ydata(yi)
-			self.vline[i].set_xdata([self.len_at_burnout,self.len_at_burnout])
+			self.vline[i].set_xdata([model.burnout_chain_len,model.burnout_chain_len])
 			self.vline[i].set_ydata([0.1,1.0])
 			self.ax[i].set_xlim(0,self.xdata[-1])
 			self.ax[i].set_ylim(0,1.05)
@@ -60,9 +57,9 @@ class TimeSeriesPlot:
 		self.update_graph(model)
 
 
-	def save(self,filename) :
-		self.fig.savefig(filename+"markov_chain.png",dpi=300)
-		self.fig.savefig(filename+"markov_chain.pdf")
+	def save(self,filename,fmt) :
+		for ext in fmt.split(","):
+			self.fig.savefig(filename+"markov_chain."+ext,dpi=300)
 		for i in range(len(self.ax)):
 			self.ax[i].clear()
 

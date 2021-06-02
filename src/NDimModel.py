@@ -26,6 +26,7 @@ import sympy
 import TimeSeriesPlot
 import PathPlot
 import CorrelationPlot
+import ResultsPlot
 
 
 def splitall(s):
@@ -48,9 +49,9 @@ class Plotter:
 		self.switch_3=False
 
 
-	def initialize_plots(self,model,group):
+	def initialize_plots(self,model,group,show=True):
 		# ion for live updates
-		if self.switch_1 and self.switch_2:
+		if show:
 			plt.ion()
 		else:
 			pass
@@ -70,7 +71,7 @@ class Plotter:
 
 	def draw_at_checkpoint(self,model) :
 
-		if self.switch_2 and len(model.xd1[0])>1 :
+		if self.switch_2 and len(model.xb1[0])>1 :
 			self.plot3.update(model)
 
 	def draw_at_metropolis(self,model,M,r,f) :
@@ -82,10 +83,10 @@ class Plotter:
 	def finished_plotting(self,model,group) :
 
 		if self.switch_1:
-			self.plot1.save(model.output_dir+'/'+"group_"+str(group)+"_")
-			self.plot2.save(model.output_dir+'/'+"group_"+str(group)+"_")
+			self.plot1.save(model.output_dir+'/'+model.dataset_name+"_"+"group_"+str(group)+"_",model.myfmt)
+			self.plot2.save(model.output_dir+'/'+model.dataset_name+"_"+"group_"+str(group)+"_",model.myfmt)
 		if self.switch_2:
-			self.plot3.save(model.output_dir+'/'+"group_"+str(group)+"_")
+			self.plot3.save(model.output_dir+'/'+model.dataset_name+"_"+"group_"+str(group)+"_",model.myfmt)
 
 	def draw_final_dists(self,xdata,model) :
 
@@ -111,14 +112,13 @@ class Plotter:
 		plt.show(block=True)
 
 	def draw_only_at_end(self,model,group):
-		#self.switch_1=False
-		self.initialize_plots(model,group)
+		self.initialize_plots(model,group,False)
 		self.draw_at_checkpoint(model)
-		self.plot1.xdata = list(range(0,len(model.xd1[0])))
-		self.plot1.ydata = model.xd1[1:].copy()
-		self.plot1.ydata.append(model.xd1[0])
+		self.plot1.xdata = list(range(0,len(model.xb1[0])))
+		self.plot1.ydata = model.xb1[1:].copy()
+		self.plot1.ydata.append(model.xb1[0])
 		self.plot1.update_graph(model)
-		self.plot2.update_graph(model)
+		self.plot2.draw_graph(model)
 		self.finished_plotting(model,group)
 
 
@@ -148,6 +148,8 @@ class Model:
 		self.latex = False
 
 		self.chain_counter=0
+		self.chain_checkpoint_every=20
+		self.burnout_chain_len=0
 
 		self.axes_labels=[]
 		self.default_delimiter=','
@@ -159,6 +161,10 @@ class Model:
 		# 1 - technical and mathematical details
 		# 2 - coding debug
 		self.verbosity=1
+	
+		self.dataset_name=""
+		self.myfilename=""
+		self.myfmt=""
 
 	def reset(self) :
 		# was the 'set_up_data' method called?
@@ -304,9 +310,11 @@ class Model:
 			self.dataset_name=datafname+"_"+sourcesfname+"_"+auxfname
 		else :
 			self.dataset_name=datafname+"_"+sourcesfname
+		if self.myfilename!="":
+			self.dataset_name=self.myfilename
 		self.output_dir=self.output_dir+self.dataset_name
 		Path(self.output_dir).mkdir(parents=True, exist_ok=True)
-		self.output=self.output_dir+'/results.csv'
+		self.output=self.output_dir+'/'+self.dataset_name+'_results.csv'
 		print("Output file: ")
 		print(self.output)
 		print()
@@ -449,7 +457,15 @@ class Model:
 		print("self.dMdPar: ",self.dMdPar)
 		print()
 
+		# to store everything after burnout
+		# xd1 stores variables: f_1, ..., r_1,...
+		# xd2 stores mu_i
 		self.xd1 = [ [] for i in range(self.nvariables)]
+		self.xd2 = [ [] for i in range(self.nisotopes)]
+
+		# to store everything, including burnout
+		self.xb1 = [ [] for i in range(self.nvariables)]
+		self.xb2 = [ [] for i in range(self.nisotopes)]
 
 		if len(self.axes_labels)==0:
 			self.axes_labels = self.isotopes_list.copy()
@@ -462,7 +478,6 @@ class Model:
 		print("Output directory:", self.data_file)
 
 		print("Results:")
-		print("var.", "mean", "median", "stdev","lim_low","lim_up",sep='\t')
 
 		if self.plotting_switch :
 			self.plotter.draw_final_dists(xdata,self)
@@ -475,8 +490,17 @@ class Model:
 
 		plt.close('all')
 
+		f_out.write(str(group))
+		f_out.write(self.default_delimiter)
+
+		print()
+		results_columns=["var", "mean", "median", "stdev","CI68_low","CI68_up","CI95_low","CI95_up"]
+		results={}
+		for rc in results_columns:
+			print(rc+'\t',end='')
+			results[rc]=[]
 		nbins=10000
-		f_out.write(str(group)+self.default_delimiter)
+		
 		for i,var in enumerate(self.var_list) :
 
 			xhist, xbins = np.histogram(xdata[i], bins=nbins, range=(0,1), density=True)
@@ -484,15 +508,32 @@ class Model:
 			xcum = np.cumsum(xhist)
 			xcum /= nbins
 
-			xcum_low = xcum - (0.5-0.341)
-			xcum_high = xcum - (0.5+0.341)
+			xcum_low = xcum - (0.5-0.6827/2)
+			xcum_high = xcum - (0.5+0.6827/2)
 			lim_low = np.where(np.diff(np.sign(xcum_low)))[0]
 			lim_high = np.where(np.diff(np.sign(xcum_high)))[0]
 
 			err_low = lim_low[0]/nbins
 			err_high = lim_high[0]/nbins
 
-			print("f_"+var, "{:.4f}".format(mean(xdata[i])), "{:.4f}".format(median(xdata[i])), "{:.4f}".format(std(xdata[i])), "{:.4f}".format(err_low), "{:.4f}".format(err_high),sep='\t')
+			xcum_low = xcum - (0.5-0.9545/2)
+			xcum_high = xcum - (0.5+0.9545/2)
+			lim_low = np.where(np.diff(np.sign(xcum_low)))[0]
+			lim_high = np.where(np.diff(np.sign(xcum_high)))[0]
+
+			err95_low = lim_low[0]/nbins
+			err95_high = lim_high[0]/nbins
+
+			results["var"].append(var)
+			results["mean"].append(mean(xdata[i]))
+			results["median"].append(median(xdata[i]))
+			results["stdev"].append(std(xdata[i]))
+			results["CI68_low"].append(err_low)
+			results["CI68_up"].append(err_high)
+			results["CI95_low"].append(err95_low)
+			results["CI95_up"].append(err95_high)
+
+			print("f_"+var, "{:.3f}".format(mean(xdata[i])), "{:.3f}".format(median(xdata[i])), "{:.3f}".format(std(xdata[i])), "{:.3f}".format(err_low), "{:.3f}".format(err_high),sep='\t')
 
 			f_out.write("{:.6f}".format(mean(xdata[i])))
 			f_out.write(self.default_delimiter)
@@ -504,11 +545,33 @@ class Model:
 			f_out.write(self.default_delimiter)
 			f_out.write("{:.6f}".format(err_high))
 			f_out.write(self.default_delimiter)
-
-		print()
+			f_out.write("{:.6f}".format(err95_low))
+			f_out.write(self.default_delimiter)
+			f_out.write("{:.6f}".format(err95_high))
+			f_out.write(self.default_delimiter)
 		f_out.write("\n")
 
+		print()
+
+		print("LaTex table:")
+		for i,var in enumerate(results["var"]):
+			for k in results.keys():
+				if k=="var":
+					print(results[k][i],end=' & ')
+				else:
+					print("{:.3f}".format(results[k][i]),end=' & ')
+			print('\\\\')
+
+		print()
+
+
+		for row in self.xb1:
+			row.clear()
 		for row in self.xd1:
+			row.clear()
+		for row in self.xb2:
+			row.clear()
+		for row in self.xd2:
 			row.clear()
 
 
@@ -538,13 +601,14 @@ class Model:
 		colnames= self.var_list
 
 		f_out.write("group"+self.default_delimiter)
-		#print("var.", "mean", "median", "stdev","lim_low","lim_up",sep='\t')
 		for cl in colnames:
 			f_out.write("mean_"+cl+self.default_delimiter)
 			f_out.write("median_"+cl+self.default_delimiter)
 			f_out.write("stdev_"+cl+self.default_delimiter)
-			f_out.write("lim_low_"+cl+self.default_delimiter)
-			f_out.write("lim_up_"+cl+self.default_delimiter)
+			f_out.write("CI68_low"+cl+self.default_delimiter)
+			f_out.write("CI68_up"+cl+self.default_delimiter)
+			f_out.write("CI95_low"+cl+self.default_delimiter)
+			f_out.write("CI95_up"+cl+self.default_delimiter)
 		f_out.write("\n")
 
 
@@ -578,9 +642,6 @@ class Model:
 
 			self.group_i=gi
 			self.group=group
-
-			for row in self.xd1:
-				row.clear()
 
 			# setting up the plots
 			if self.plotting_switch :
@@ -753,9 +814,9 @@ class Model:
 				if L >= alpha*T : 
 					
 					if self.ii>self.burnout:
-						if self.chain_counter%10==0:
+						if self.chain_counter%self.chain_checkpoint_every==0:
 							tend = time.time()
-							print(" --> time/"+"10 chain entries: "+str("{:.3f}".format(tend - tstart))+'s')
+							print(" --> time/"+str(self.chain_checkpoint_every)+" chain entries: "+str("{:.3f}".format(tend - tstart))+'s')
 							tstart = time.time()
 
 							if self.plotting_switch and self.ii > self.burnout:
@@ -777,17 +838,31 @@ class Model:
 					# update the threshold
 					T=L
 
+					# arrays used for plotting:
+					for i in range(self.nsources):
+						self.xb1[i].append(f[i])
+					for i in range(self.nauxvars):
+						self.xb1[i+self.nsources].append(r[i])
+					for i in range(self.nisotopes):
+						self.xb2[i].append(M[i])
+
 					if self.ii>self.burnout:
 						# arrays used for plotting:
 						for i in range(self.nsources):
 							self.xd1[i].append(f[i])
 						for i in range(self.nauxvars):
 							self.xd1[i+self.nsources].append(r[i])
+						for i in range(self.nisotopes):
+							self.xd2[i].append(M[i])
+					else:
+						self.burnout_chain_len+=1
+
 
 					if self.plotting_switch:
 						timer_metropolis_start = time.time()
 						self.plotter.draw_at_metropolis(self,M,r,f)
 						timer_metropolis_end = time.time()
+
 						if(self.verbosity==2) :
 							print("metropolis plotting [s]:",timer_metropolis_end-timer_metropolis_start)
 
@@ -802,6 +877,9 @@ class Model:
 			print()
 
 		f_out.close()
+
+		rp = ResultsPlot.ResultsPlot(self.output,self.myfmt)
+
 		self.is_finished=True
 		if not self.abort:
 			print("All finished successfully!")
