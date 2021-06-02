@@ -14,7 +14,7 @@ class CorrelationPlot:
 		self.base_size=1.5
 		# figure 2 -- the 1D histograms and correlation plots
 		self.fig, self.ax = plt.subplots(model.nvariables,model.nvariables,figsize=(1.1*self.base_size*model.nvariables,self.base_size*model.nvariables))
-		self.fig.subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.90, wspace=0., hspace=0.)
+		self.fig.subplots_adjust(left=0.15, bottom=0.1, right=0.9, top=0.90, wspace=0., hspace=0.)
 
 		self.hist_line = []
 		# 1D histograms

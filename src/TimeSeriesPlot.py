@@ -28,8 +28,8 @@ class TimeSeriesPlot:
 
 	def update_graph(self,model):
 		pos_text=len(self.xdata)*0.85
-		if model.ii>model.burnout:
-			pos_text=max(model.burnout_chain_len - 0.15*len(self.xdata),0.0)
+		if model.chain_counter>0:
+			pos_text=max(model.burnout_chain_len - 0.15*len(self.xdata),10)
 
 		for i, yi in enumerate(self.ydata):
 			self.line[i].set_xdata(self.xdata)

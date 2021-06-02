@@ -341,8 +341,6 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.table3.setModel(self.model3)
 		self.table3.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents);
 
-		self.outdir = "../output/"
-
 		self.sc1 = MplCanvas(self, width=2.5, height=3, dpi=100)
 
 		self.toolbar1 = NavigationToolbar(self.sc1, self)
@@ -487,13 +485,13 @@ class MainWindow(QtWidgets.QMainWindow):
 	# ----- Second card
 	# -----
 
-		label1 = QtWidgets.QLabel("Number of iterations: ");
-		label2 = QtWidgets.QLabel("Burn-out iterations: ");
+		label1 = QtWidgets.QLabel("Number of max. iterations: ");
+		label2 = QtWidgets.QLabel("Burn-out MC entries: ");
 		label3 = QtWidgets.QLabel("Desired Markov-chain length: ");
 		
-		self.lineEdit1 = QtWidgets.QLineEdit("10000");
-		self.lineEdit2 = QtWidgets.QLineEdit("1000");
-		self.lineEdit3 = QtWidgets.QLineEdit("300");
+		self.lineEdit1 = QtWidgets.QLineEdit("100000");
+		self.lineEdit2 = QtWidgets.QLineEdit("100");
+		self.lineEdit3 = QtWidgets.QLineEdit("500");
 		
 		formLayout = QtWidgets.QFormLayout();
 		formLayout.addRow(label1, self.lineEdit1)
@@ -501,10 +499,11 @@ class MainWindow(QtWidgets.QMainWindow):
 		formLayout.addRow(label3, self.lineEdit3)
 
 		label4 = QtWidgets.QLabel("Output directory: ");
-		self.lineEdit4 = QtWidgets.QLineEdit("./output/");
+		self.lineEdit4 = QtWidgets.QLineEdit("output/");
 		self.lineEdit4.setToolTip("Set output directory. Default is simply 'output'")
 		button4 = QtWidgets.QPushButton("Set...")
 		button4.clicked.connect(self.set_outdir)
+		self.outdir = self.lineEdit4.text()
 
 		label5 = QtWidgets.QLabel("Dataset name: ");
 		self.dataset_set=False
@@ -1158,16 +1157,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		model = self.mcmc_model
 
+		if self.dataset_set:
+			model.myfilename=self.dataset_name
+			print("---")
+			print(model.myfilename, self.dataset_name)
+			print("---")
+		if self.myfmt_set:
+			model.myfmt = self.myfmt
+
 		if self.mcmc_model.abort==True :
 			model.reset()
 		else :
 			model.set_up_data()
 
 		model.set_outdir(self.outdir)
-		if self.dataset_set:
-			model.dataset_name=self.dataset_name
-		if self.myfmt_set:
-			model.myfmt = self.myfmt
 
 		model.set_iterations(self.lineEdit1.text(), self.lineEdit2.text(), self.lineEdit3.text())
 

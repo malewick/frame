@@ -9,13 +9,13 @@ class ResultsPlot:
 		filename = f_out
 
 		df=pd.read_csv(filename);
-		print(df)
+		#print(df)
 	
 		variables=[]
 		for c in df.columns:
 			if "mean" in c:
 				variables.append(c[5:])
-		print(variables)
+		#print(variables)
 
 
 		for gr in df["group"].unique():

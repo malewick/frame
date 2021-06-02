@@ -71,7 +71,7 @@ class Plotter:
 
 	def draw_at_checkpoint(self,model) :
 
-		if self.switch_2 and len(model.xb1[0])>1 :
+		if self.switch_2 and len(model.xd1[0])>1 :
 			self.plot3.update(model)
 
 	def draw_at_metropolis(self,model,M,r,f) :
@@ -319,7 +319,7 @@ class Model:
 		print(self.output)
 		print()
 
-	def set_iterations(self, niter=1e7, burnout=1e5, max_chain_entries=500) :
+	def set_iterations(self, niter=1e7, burnout=100, max_chain_entries=500) :
 
 		# number of iterations, burnout, desired Markov chain length
 		self.niter=int(niter)
@@ -499,8 +499,9 @@ class Model:
 		for rc in results_columns:
 			print(rc+'\t',end='')
 			results[rc]=[]
+		print()
+
 		nbins=10000
-		
 		for i,var in enumerate(self.var_list) :
 
 			xhist, xbins = np.histogram(xdata[i], bins=nbins, range=(0,1), density=True)
@@ -554,6 +555,9 @@ class Model:
 		print()
 
 		print("LaTex table:")
+		for rc in results_columns:
+			print(rc+'\t',end=' & ')
+		print('\\\\')
 		for i,var in enumerate(results["var"]):
 			for k in results.keys():
 				if k=="var":
@@ -614,8 +618,8 @@ class Model:
 
 		if self.plotting_switch :
 			self.plotter = Plotter()
-			self.plotter.switch_1=self.plotting_switch
-			self.plotter.switch_2=self.plotting_switch
+			self.plotter.switch_1=True
+			self.plotter.switch_2=True
 
 		print()
 		print("--------------------------------------------------------------------------------------------------------")
@@ -623,7 +627,7 @@ class Model:
 		print("--------------------------------------------------------------------------------------------------------")
 		print(" --- Simulation started ---")
 		print("Number of iterations:",self.niter)
-		print("Number of burn-out iterations:",self.burnout)
+		print("Number of burn-out MC entries:",self.burnout)
 		print("Early termination if the Markov chain already has", self.max_chain_entries, "entries")
 		print()
 		print("--------------------------------------------------------------------------------------------------------")
@@ -633,6 +637,7 @@ class Model:
 		self.abort=False
 
 		self.ngroups = len(self.df['group'].unique())
+		tstart = time.time()
 
 		# for each group in the input data
 		for gi,group in enumerate(self.df['group'].unique()) :
@@ -723,7 +728,7 @@ class Model:
 					print("time/"+str(checkpoint)+" iters: "+str("{:.3f}".format(end - start))+'s')
 					start = time.time()
 
-					if(self.ii==self.burnout):
+					if(self.burnout_chain_len>=self.burnout):
 						print("end of burnout")
 						tstart = time.time()
 
@@ -813,13 +818,13 @@ class Model:
 				# changed to this because I wanted T to be zero initially:
 				if L >= alpha*T : 
 					
-					if self.ii>self.burnout:
+					if self.burnout_chain_len>=self.burnout:
 						if self.chain_counter%self.chain_checkpoint_every==0:
 							tend = time.time()
 							print(" --> time/"+str(self.chain_checkpoint_every)+" chain entries: "+str("{:.3f}".format(tend - tstart))+'s')
 							tstart = time.time()
 
-							if self.plotting_switch and self.ii > self.burnout:
+							if self.plotting_switch:
 								timer_checkpoint_start = time.time()
 								self.plotter.draw_at_checkpoint(self)
 								timer_checkpoint_end = time.time()
@@ -846,7 +851,7 @@ class Model:
 					for i in range(self.nisotopes):
 						self.xb2[i].append(M[i])
 
-					if self.ii>self.burnout:
+					if self.burnout_chain_len>=self.burnout:
 						# arrays used for plotting:
 						for i in range(self.nsources):
 							self.xd1[i].append(f[i])

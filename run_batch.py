@@ -58,10 +58,10 @@ model.set_outdir(out_dir="test_output")
 
 
 #model.set_iterations(1e6, 1e3, 100)
-model.set_iterations(1e5, 3e3, 700)
+model.set_iterations(1e5, 100, 700)
 
 # Trun online plotting on/off
-model.plotting_switch=False
+model.plotting_switch=True
 
 # run model
 model.run_model()
