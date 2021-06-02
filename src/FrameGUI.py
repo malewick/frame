@@ -1159,9 +1159,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		if self.dataset_set:
 			model.myfilename=self.dataset_name
-			print("---")
-			print(model.myfilename, self.dataset_name)
-			print("---")
 		if self.myfmt_set:
 			model.myfmt = self.myfmt
 
