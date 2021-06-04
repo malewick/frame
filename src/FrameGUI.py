@@ -55,8 +55,8 @@ class Worker(QtCore.QObject, NDimModel.Model) :
 	def process(self):
 		self.run_model()
 		self.ready=True
-	
-	
+
+
 
 
 class ExternalThread(QThread) :
@@ -145,14 +145,14 @@ class MplCanvas(FigureCanvasQTAgg):
 		self.axes.set_xlabel(arg1)
 		self.axes.set_ylabel(arg2)
 
-			
+
 		self.figure.canvas.draw()
 
 
 
 	def plot_sources(self, df_model, arg1, arg2):
 
-		# plotting the sources with spread as rectangles 
+		# plotting the sources with spread as rectangles
 		for j, tstr in enumerate(df_model["source"].unique()) :
 			vx=df_model.loc[(df_model['source'] == tstr)].iloc[0][arg1]
 			dx=df_model.loc[(df_model['source'] == tstr)].iloc[0]['spread('+arg1+')']
@@ -201,7 +201,7 @@ class MplCanvas(FigureCanvasQTAgg):
 		model_definition = re.sub(r'aux(\d*)',r'aux[i][\1]',model_definition)
 		model_definition = re.sub(r'S(\d*)',r'S[i][\1]',model_definition)
 
-		# first initialize with default f to get the a=dy/dx 
+		# first initialize with default f to get the a=dy/dx
 		f=[1./model.nsources]*model.nsources
 		M=[[0,0],[0,0]]
 		r=[0]
@@ -243,7 +243,7 @@ class MplCanvas(FigureCanvasQTAgg):
 			Mmax[j][0] = eval(model_definition)
 			r[0]=0.999999
 			Mmax[j][1] = eval(model_definition)
-		
+
 		self.axes.plot(Mmax[0],Mmax[1],'k--',alpha=0.3)
 
 
@@ -258,7 +258,7 @@ class MplCanvas(FigureCanvasQTAgg):
 			Mmin[j][0] = eval(model_definition)
 			r[0]=0.999999
 			Mmin[j][1] = eval(model_definition)
-		
+
 		self.axes.plot(Mmin[0],Mmin[1],'k--',alpha=0.3)
 
 		# adjusting the axes limits so the lines can be clearly visible
@@ -309,7 +309,7 @@ class TableModel(QtCore.QAbstractTableModel):
 
 class MainWindow(QtWidgets.QMainWindow):
 
- 
+
 
 	def __init__(self, *args, **kwargs):
 		super(MainWindow, self).__init__(*args, **kwargs)
@@ -385,17 +385,17 @@ class MainWindow(QtWidgets.QMainWindow):
 		button_load.setSizePolicy(
 			QtWidgets.QSizePolicy.Preferred,
 			QtWidgets.QSizePolicy.Expanding)
-		button_load.setFont(QtGui.QFont('Sans', 15)) 
+		button_load.setFont(QtGui.QFont('Sans', 15))
 
 		button_sources.setSizePolicy(
 			QtWidgets.QSizePolicy.Preferred,
 			QtWidgets.QSizePolicy.Expanding)
-		button_sources.setFont(QtGui.QFont('Sans', 15)) 
+		button_sources.setFont(QtGui.QFont('Sans', 15))
 
 		button_frac.setSizePolicy(
 			QtWidgets.QSizePolicy.Preferred,
 			QtWidgets.QSizePolicy.Expanding)
-		button_frac.setFont(QtGui.QFont('Sans', 15)) 
+		button_frac.setFont(QtGui.QFont('Sans', 15))
 
 		button_load.clicked.connect(self.load_data_clicked)
 		button_sources.clicked.connect(self.load_sources_clicked)
@@ -409,7 +409,7 @@ class MainWindow(QtWidgets.QMainWindow):
 			self.layout_dropdown.addWidget(ql)
 
 		gb = QtWidgets.QGroupBox("Isotopes");
-		gb.setFont(QtGui.QFont('Sans', 11)) 
+		gb.setFont(QtGui.QFont('Sans', 11))
 		gb.setLayout(self.layout_dropdown)
 
 		self.layout_dropdown2 = QtWidgets.QHBoxLayout();
@@ -420,7 +420,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		gbs = QtWidgets.QGroupBox("Sources");
 		gbs.setLayout(self.layout_dropdown2)
-		gbs.setFont(QtGui.QFont('Sans', 11)) 
+		gbs.setFont(QtGui.QFont('Sans', 11))
 
 		self.layout_dropdown1 = QtWidgets.QHBoxLayout();
 		self.auxvar_qlabels=[]
@@ -429,7 +429,7 @@ class MainWindow(QtWidgets.QMainWindow):
 			self.layout_dropdown1.addWidget(ql)
 
 		gbv = QtWidgets.QGroupBox("Aux. variables");
-		gbv.setFont(QtGui.QFont('Sans', 11)) 
+		gbv.setFont(QtGui.QFont('Sans', 11))
 		gbv.setLayout(self.layout_dropdown1)
 
 		self.layout_dropdown3 = QtWidgets.QHBoxLayout();
@@ -439,7 +439,7 @@ class MainWindow(QtWidgets.QMainWindow):
 			self.layout_dropdown3.addWidget(ql)
 
 		gba = QtWidgets.QGroupBox("Aux. parameters");
-		gba.setFont(QtGui.QFont('Sans', 11)) 
+		gba.setFont(QtGui.QFont('Sans', 11))
 		gba.setLayout(self.layout_dropdown3)
 
 
@@ -488,18 +488,18 @@ class MainWindow(QtWidgets.QMainWindow):
 		label1 = QtWidgets.QLabel("Number of max. iterations: ");
 		label2 = QtWidgets.QLabel("Burn-out MC entries: ");
 		label3 = QtWidgets.QLabel("Desired Markov-chain length: ");
-		
+
 		self.lineEdit1 = QtWidgets.QLineEdit("100000");
 		self.lineEdit2 = QtWidgets.QLineEdit("100");
 		self.lineEdit3 = QtWidgets.QLineEdit("500");
-		
+
 		formLayout = QtWidgets.QFormLayout();
 		formLayout.addRow(label1, self.lineEdit1)
 		formLayout.addRow(label2, self.lineEdit2)
 		formLayout.addRow(label3, self.lineEdit3)
 
 		label4 = QtWidgets.QLabel("Output directory: ");
-		self.lineEdit4 = QtWidgets.QLineEdit("output/");
+		self.lineEdit4 = QtWidgets.QLineEdit("../output/");
 		self.lineEdit4.setToolTip("Set output directory. Default is simply 'output'")
 		button4 = QtWidgets.QPushButton("Set...")
 		button4.clicked.connect(self.set_outdir)
@@ -529,11 +529,11 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.plotting_check_box = QtWidgets.QPushButton("Batch mode: OFF", self);
 		self.plotting_check_box.setCheckable(True);
 		self.plotting_check_box.setToolTip("Batch mode turns off online plotting, which affects the computation time significantly.")
-		self.plotting_check_box.setFont(QtGui.QFont('Sans', 12)) 
+		self.plotting_check_box.setFont(QtGui.QFont('Sans', 12))
 		self.plotting_check_box.clicked.connect(self.on_off_swtich)
 
 		self.button_plot_settings = QtWidgets.QPushButton("Plot settings...")
-		self.button_plot_settings.setFont(QtGui.QFont('Sans', 11)) 
+		self.button_plot_settings.setFont(QtGui.QFont('Sans', 11))
 		self.button_plot_settings.clicked.connect(self.show_plot_settings)
 		self.button_plot_settings.setToolTip("Set nice labels for axes using LaTex format.")
 
@@ -543,9 +543,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		layout_aux = QtWidgets.QVBoxLayout()
 		label_model = QtWidgets.QLabel("Model equation:")
-		label_model.setFont(QtGui.QFont('Sans', 11)) 
+		label_model.setFont(QtGui.QFont('Sans', 11))
 		#label_derivatives = QtWidgets.QLabel("Model derivatives:")
-		#label_derivatives.setFont(QtGui.QFont('Sans', 11)) 
+		#label_derivatives.setFont(QtGui.QFont('Sans', 11))
 		self.ledit_model = QtWidgets.QLineEdit("");
 		self.ledit_model.setMinimumSize(200,25)
 		self.ledit_model.setReadOnly(True)
@@ -569,8 +569,8 @@ class MainWindow(QtWidgets.QMainWindow):
 		button1.setSizePolicy(
 			QtWidgets.QSizePolicy.Preferred,
 			QtWidgets.QSizePolicy.Expanding)
-		button1.setFont(QtGui.QFont('Sans', 15)) 
-	
+		button1.setFont(QtGui.QFont('Sans', 15))
+
 		layout_buttons = QtWidgets.QHBoxLayout()
 		layout_buttons.addWidget(button1)
 		#layout_buttons.addStretch(1)
@@ -579,7 +579,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.progressbar.setMaximum(100)
 
 		self.abort_button = QtWidgets.QPushButton("Stop")
-		self.abort_button.setFont(QtGui.QFont('Sans', 15)) 
+		self.abort_button.setFont(QtGui.QFont('Sans', 15))
 		self.abort_button.clicked.connect(self.abort_model)
 
 		layout_progress = QtWidgets.QHBoxLayout()
@@ -953,7 +953,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		with open(xml_file, 'w') as f:
 			f.write(xmlstr)
 
-		
+
 
 	def load_xml_clicked(self) :
 		print("Loading from xml file")
@@ -981,7 +981,7 @@ class MainWindow(QtWidgets.QMainWindow):
 			self.load_aux(dict_from_xml['aux_file'])
 
 
-	
+
 
 	def load_data_clicked(self) :
 		print("Loading data on measurements...")
@@ -1004,7 +1004,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.table1.setModel(self.model1)
 
 		# clearing layout
-		for i in reversed(range(self.layout_dropdown.count())): 
+		for i in reversed(range(self.layout_dropdown.count())):
 			widgetToRemove = self.layout_dropdown.itemAt(i).widget()
 			self.layout_dropdown.removeWidget(widgetToRemove)
 			widgetToRemove.setParent(None)
@@ -1024,7 +1024,7 @@ class MainWindow(QtWidgets.QMainWindow):
 			self.sc2.plot_data(self.df_data,self.mcmc_model.isotopes_list[0],self.mcmc_model.isotopes_list[2])
 			self.sc3.plot_data(self.df_data,self.mcmc_model.isotopes_list[1],self.mcmc_model.isotopes_list[2])
 
-		
+
 	def load_sources_clicked(self) :
 		print("Loading data on sources...")
 		fileName = QtWidgets.QFileDialog.getOpenFileName(self,
@@ -1042,7 +1042,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.table2.setModel(self.model2)
 
 		# clearing layout
-		for i in reversed(range(self.layout_dropdown2.count())): 
+		for i in reversed(range(self.layout_dropdown2.count())):
 			widgetToRemove = self.layout_dropdown2.itemAt(i).widget()
 			self.layout_dropdown2.removeWidget(widgetToRemove)
 			widgetToRemove.setParent(None)
@@ -1089,7 +1089,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		#	str_derivaties += "dM/d"+src+"="+self.mcmc_model.model_derivatives[i]+", "
 		#for i, par in enumerate(self.mcmc_model.aux_pars):
 		#	str_derivaties += "dM/d"+par+"="+self.mcmc_model.model_derivatives[len(self.mcmc_model.sources_list)+i]+", "
-			
+
 		#self.ledit_derivatives.setText(str_derivaties[:-2]);
 
 		self.df_auxs = self.mcmc_model.df_aux
@@ -1098,7 +1098,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.table3.setModel(self.model3)
 
 		# clearing layout
-		for i in reversed(range(self.layout_dropdown1.count())): 
+		for i in reversed(range(self.layout_dropdown1.count())):
 			widgetToRemove = self.layout_dropdown1.itemAt(i).widget()
 			self.layout_dropdown1.removeWidget(widgetToRemove)
 			widgetToRemove.setParent(None)
@@ -1110,7 +1110,7 @@ class MainWindow(QtWidgets.QMainWindow):
 			self.layout_dropdown1.addWidget(ql)
 
 		# clearing layout
-		for i in reversed(range(self.layout_dropdown3.count())): 
+		for i in reversed(range(self.layout_dropdown3.count())):
 			widgetToRemove = self.layout_dropdown3.itemAt(i).widget()
 			self.layout_dropdown3.removeWidget(widgetToRemove)
 			widgetToRemove.setParent(None)
