@@ -1,0 +1,4 @@
+source,I1,stdev(I1),spread(I1),I2,stdev(I2),spread(I2)
+S1,0,0,3,0,0,4
+S2,10,0,4,30,0,3
+S3,20,0,3,0,0,4
