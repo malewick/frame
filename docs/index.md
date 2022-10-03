@@ -7,7 +7,7 @@ Welcome to FRAME! A friendly graphical interface for calculation of isotope mixi
 ## Install
 
 Current release:
- - **v0.5-beta** [link](https://github.com/malewick/frame/releases/tag/v0.5)
+ - **v0.6-beta** [link](https://github.com/malewick/frame/releases/tag/v0.6-beta)
 
 See all previous releases [here](https://github.com/malewick/frame/releases/).
 
