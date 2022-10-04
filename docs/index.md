@@ -17,7 +17,10 @@ The sources and detailed installation instructions are given on the [github page
 
 The user guide can be found under [this link](user_guide.md).
 
-A more detailed scientific description is published here: [link to the paper].
+A more detailed scientific description is published here: [link to the paper -- coming soon!].
+
+The example input data are included in the installation and for the real world examples see: [real-world-examples](https://github.com/malewick/frame/tree/main/input/real%20world%20examples)
+
 
 
 ## Discussion and bugs report
