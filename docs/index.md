@@ -20,7 +20,7 @@ The program works in 5 simple steps:
 
 1. Load data on your measured samples
 
-<img width="322" alt="scrrenshot loading data" src="https://user-images.githubusercontent.com/24914567/204164202-4426b6dc-0f3d-4f73-81bf-cbb5fe2ce698.png">
+[<img width="322" alt="scrrenshot loading data" src="https://user-images.githubusercontent.com/24914567/204164202-4426b6dc-0f3d-4f73-81bf-cbb5fe2ce698.png">](https://user-images.githubusercontent.com/24914567/204164202-4426b6dc-0f3d-4f73-81bf-cbb5fe2ce698.png)
 
 2. Load isotopic signatures of considered sources
 
