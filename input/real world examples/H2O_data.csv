@@ -1,2 +1,2 @@
-group,d18O,d2H,sigma(d18O),sigma(d2H)
+group,d18O,d2H,stdev(d18O),stdev(d2H)
 1,-2,-25,0.2,3

@@ -1,4 +1,4 @@
-label,group,SP,sigma(SP),d18O,sigma(d18O),d15N,sigma(d15N)
+label,group,SP,stdev(SP),d18O,stdev(d18O),d15N,stdev(d15N)
 T1,1,11.1,1,47.6,0.5,-35.2,1
 T2,2,3,1,26.3,0.5,-45,1
 T3,3,31.7,1,24.8,0.5,-54,1

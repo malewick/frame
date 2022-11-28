@@ -1,4 +1,4 @@
-source,d18O,delta(d18O),sigma(d18O),d15N,delta(d15N),sigma(d15N)
+source,d18O,spread(d18O),stdev(d18O),d15N,spread(d15N),stdev(d15N)
 NAR,4.3,1,0.5,-13.3,1,0.5
 AOX,18.4,2,0.5,68.9,3,0.5
 ORG,18.4,2,0.5,5.4,1,0.5
