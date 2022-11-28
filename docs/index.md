@@ -18,30 +18,17 @@ The python source code and instructions for developers are given on the [github 
 
 The program works in 5 simple steps:
 
-1. Load data on your measured samples
-
-test
-[<img width="322" alt="scrrenshot loading data" src="https://user-images.githubusercontent.com/24914567/204164202-4426b6dc-0f3d-4f73-81bf-cbb5fe2ce698.png">](https://user-images.githubusercontent.com/24914567/204164202-4426b6dc-0f3d-4f73-81bf-cbb5fe2ce698.png)
-
-2. Load isotopic signatures of considered sources
-
-<img width="322" alt="screanshot loading sources" src="https://user-images.githubusercontent.com/24914567/204164209-0d958310-640f-4eb0-a50a-664395ad0a7a.png">
-
-3. (Optional: Load details on the fractionation process)
-
-<img width="322" alt="screenshot loading fractionation" src="https://user-images.githubusercontent.com/24914567/204164214-d3dd12e6-0f70-4ec7-a802-e87e64018f40.png">
-
-4. Verify your loaded data
-
-<img width="322" alt="screenshot data plotted" src="https://user-images.githubusercontent.com/24914567/204164250-67b016b9-c780-4cad-ad26-68a0aa868a9b.png">
-
-5. Run the model!
-
-<img width="322" alt="screenshot run model" src="https://user-images.githubusercontent.com/24914567/204164219-64025d4e-db2d-45cf-b668-3ae0bc5d4816.png">
+| Step  | Screenshot |
+| ------------- | ------------- |
+| 1. Load data on your measured samples  | [<img width="500" alt="scrrenshot loading data" src="https://user-images.githubusercontent.com/24914567/204164202-4426b6dc-0f3d-4f73-81bf-cbb5fe2ce698.png">](https://user-images.githubusercontent.com/24914567/204164202-4426b6dc-0f3d-4f73-81bf-cbb5fe2ce698.png) |
+| 2. Load isotopic signatures of considered sources | [<img width="500" alt="screanshot loading sources" src="https://user-images.githubusercontent.com/24914567/204164209-0d958310-640f-4eb0-a50a-664395ad0a7a.png">](https://user-images.githubusercontent.com/24914567/204164209-0d958310-640f-4eb0-a50a-664395ad0a7a.png) |
+| 3. (Optional: Load details on the fractionation process)  | [<img width="500" alt="screenshot loading fractionation" src="https://user-images.githubusercontent.com/24914567/204164214-d3dd12e6-0f70-4ec7-a802-e87e64018f40.png">](https://user-images.githubusercontent.com/24914567/204164214-d3dd12e6-0f70-4ec7-a802-e87e64018f40.png)  |
+| 4. Verify your loaded data  | [<img width="500" alt="screenshot data plotted" src="https://user-images.githubusercontent.com/24914567/204164250-67b016b9-c780-4cad-ad26-68a0aa868a9b.png">](https://user-images.githubusercontent.com/24914567/204164250-67b016b9-c780-4cad-ad26-68a0aa868a9b.png)  |
+| 5. Run the model! | [<img width="260" alt="screenshot run model" src="https://user-images.githubusercontent.com/24914567/204164219-64025d4e-db2d-45cf-b668-3ae0bc5d4816.png">](https://user-images.githubusercontent.com/24914567/204164219-64025d4e-db2d-45cf-b668-3ae0bc5d4816.png)  |
 
 Voila! The simulation is running!
 
-<img width="322" alt="screenshot model running" src="https://user-images.githubusercontent.com/24914567/204164285-dd67e181-00f9-4abe-9c34-34ea7ffe56fe.png">
+[<img width="800" alt="screenshot model running" src="https://user-images.githubusercontent.com/24914567/204164285-dd67e181-00f9-4abe-9c34-34ea7ffe56fe.png">](https://user-images.githubusercontent.com/24914567/204164285-dd67e181-00f9-4abe-9c34-34ea7ffe56fe.png)
 
 **A more detailed user guide can be found under [this link](user_guide.md).**
 
