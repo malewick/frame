@@ -3,6 +3,8 @@
 
 Welcome to FRAME! A friendly graphical interface for calculation of isotope mixing.
 
+[Article at PLOS ONE](https://doi.org/10.1371/journal.pone.0277204)
+
 ## About
 
 FRAME is a Bayesian stable isotope mixing model for **sources partitioning AND simultaneous estimation of fractionation progress** based on the stable isotope composition of sources/substrates and mixture/products. The underlying mathematical algorithm is the **Markov-Chain Monte Carlo** implemented in python. It features an open mathematical design allowing for the **implementation of custom additional processes** that alternate the characteristics of the final mixture and its application for a broad range of studies. It comes with a **friendly graphical interface** too!
