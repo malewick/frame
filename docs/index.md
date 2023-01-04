@@ -48,7 +48,8 @@ Our issue tracker is at https://github.com/malewick/frame/issues. Please report 
 ## Atribution
 Please cite FRAME in publications using:
 
-[to be filled]
+Lewicki MP, Lewicka-Szczebak D, Skrzypek G (2022) _FRAME—Monte Carlo model for evaluation of the stable isotope mixing and fractionation_.
+PLoS ONE 17(11): e0277204. https://doi.org/10.1371/journal.pone.0277204
 
 
 ## License, Distribution and Disclaimer
