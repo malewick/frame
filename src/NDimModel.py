@@ -49,7 +49,7 @@ class Plotter:
 		self.switch_3=False
 
 
-	def initialize_plots(self,model,group,show=True):
+	def initialize_plots(self,model,group,plot3_style,show=True):
 		# ion for live updates
 		if show:
 			plt.ion()
@@ -65,6 +65,9 @@ class Plotter:
 		if self.switch_2 :
 			# figure 3 -- histograms and correaltion of Markov chain variables`
 			self.plot3 = CorrelationPlot.CorrelationPlot(model)
+			self.plot3_style = plot3_style
+			print("using correlation plot style: ", plot3_style)
+			self.plot3.plot_type = plot3_style
 
 		# ----------------------------------
 
@@ -111,8 +114,8 @@ class Plotter:
 
 		plt.show(block=True)
 
-	def draw_only_at_end(self,model,group):
-		self.initialize_plots(model,group,False)
+	def draw_only_at_end(self,model,group,plot3_style):
+		self.initialize_plots(model,group,plot3_style,False)
 		self.draw_at_checkpoint(model)
 		self.plot1.xdata = list(range(0,len(model.xb1[0])))
 		self.plot1.ydata = model.xb1[1:].copy()
@@ -165,6 +168,9 @@ class Model:
 		self.dataset_name=""
 		self.myfilename=""
 		self.myfmt=""
+
+		# I didn't want to have plotting-related variables here, but I cannot think of anything simpler for now:
+		self.plot3_style='hist2d'
 
 	def reset(self) :
 		# was the 'set_up_data' method called?
@@ -486,7 +492,7 @@ class Model:
 			self.plotter = Plotter()
 			self.plotter.switch_1=True
 			self.plotter.switch_2=True
-			self.plotter.draw_only_at_end(self,group)
+			self.plotter.draw_only_at_end(self,group,self.plot3_style)
 
 		plt.close('all')
 
@@ -650,7 +656,7 @@ class Model:
 
 			# setting up the plots
 			if self.plotting_switch :
-				self.plotter.initialize_plots(self,group)
+				self.plotter.initialize_plots(self,group,self.plot3_style)
 
 			# ----------------------------------
 

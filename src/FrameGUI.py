@@ -15,7 +15,7 @@ from matplotlib.patches import Rectangle
 
 import pandas as pd
 import numpy as np
-from numpy import *
+#from numpy import *
 
 import sympy
 
@@ -69,7 +69,8 @@ class ExternalThread(QThread) :
 	def run(self):
 		while True:
 			time.sleep(1)
-			progress = self.model.group_i / self.model.ngroups + 1./self.model.ngroups * min(1., self.model.chain_counter / self.model.max_chain_entries)
+			test1 = min(1., float(self.model.chain_counter) / float(self.model.max_chain_entries))
+			progress = self.model.group_i / self.model.ngroups + 1./self.model.ngroups * min(1., float(self.model.chain_counter) / float(self.model.max_chain_entries))
 			if self.model.is_finished :
 				progress=1
 			self.countChanged.emit(int(100*progress))
@@ -532,6 +533,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.plotting_check_box.setFont(QtGui.QFont('Sans', 12))
 		self.plotting_check_box.clicked.connect(self.on_off_swtich)
 
+		self.plot_style_ind = 0
 		self.button_plot_settings = QtWidgets.QPushButton("Plot settings...")
 		self.button_plot_settings.setFont(QtGui.QFont('Sans', 11))
 		self.button_plot_settings.clicked.connect(self.show_plot_settings)
@@ -832,6 +834,8 @@ class MainWindow(QtWidgets.QMainWindow):
 		hlayout.addWidget(ok_button)
 
 
+		label2_0 = QtWidgets.QLabel("Select text font")
+		formLayout.addRow(label2_0)
 		font_cb = QtWidgets.QComboBox()
 		matplotlib.font_manager.findSystemFonts(fontpaths=None, fontext='ttf')
 		font_list = matplotlib.font_manager.get_fontconfig_fonts()
@@ -851,10 +855,22 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.font_sample.axes.text(0.1,0.1,"sample text")
 		self.font_sample.axes.axis('off')
 
+		formLayout2 = QtWidgets.QFormLayout()
+		label3_0 = QtWidgets.QLabel("Select plotting style")
+		formLayout2.addRow(label3_0)
+		self.plot_style_cb = QtWidgets.QComboBox()
+		self.style_names = ["scatter","contour","hist2d","hexbin"]
+		self.plot_style_cb.addItems(self.style_names)
+		self.selected_style=None
+		self.plot_style_cb.setCurrentIndex(self.plot_style_ind)
+		self.plot_style_cb.currentIndexChanged.connect(self.plot_style_selected)
+
 		layout.addLayout(formLayout)
-		layout.addLayout(hlayout)
 		layout.addWidget(font_cb)
 		layout.addWidget(self.font_sample)
+		layout.addLayout(formLayout2)
+		layout.addWidget(self.plot_style_cb)
+		layout.addLayout(hlayout)
 		self.settings_window.setLayout(layout)
 		self.settings_window.show()
 
@@ -897,6 +913,12 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.font_sample.axes.axis('off')
 		self.font_sample.figure.canvas.draw()
 
+	def plot_style_selected(self, ind):
+		self.plot_style_ind = ind
+		self.plot_style_cb.setCurrentIndex(ind)
+		self.mcmc_model.plot3_style=self.style_names[ind]
+		print("selected correlation plot style: ", self.mcmc_model.plot3_style)
+
 	def clear_clicked(self) :
 		self.model1.reset()
 		self.model2.reset()
@@ -927,6 +949,8 @@ class MainWindow(QtWidgets.QMainWindow):
 		fileName = QtWidgets.QFileDialog.getSaveFileName(self,
 				"Save File", "../input/", "XML Files *.xml")
 		print(fileName)
+		#if fileName[0][-4:] != '.xml':
+		#	fileName[0]+='.xml'
 		self.save_to_xml(fileName[0])
 
 	def save_to_xml(self, xml_file):

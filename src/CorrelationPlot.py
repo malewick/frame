@@ -2,7 +2,7 @@ import scipy.stats as st
 
 import pandas as pd
 import numpy as np
-from numpy import *
+#from numpy import *
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -24,6 +24,8 @@ class CorrelationPlot:
 		# ----------------------------------
 		self.artists_initialized=False
 
+		self.plot_type = "hexbin"
+
 
 	def update(self,model):
 		# 1D histograms
@@ -44,11 +46,17 @@ class CorrelationPlot:
 		for i in range(model.nvariables-1):
 			for j in range(i+1,model.nvariables):
 				self.ax[i,j].clear()
-				self.ax[i,j].plot(model.xd1[j],model.xd1[i],marker='o',linestyle='none',color='black', markersize=0.4, alpha=max(0.5*(1-model.chain_counter/200.),0.))
 				self.ax[i,j].set_xlim(-0.1,1.15)
 				self.ax[i,j].set_ylim(-0.1,1.15)
-				self.plotkde(model.xd1[j],model.xd1[i],self.ax[i,j])
-
+				if(self.plot_type=="contour"):
+					self.ax[i,j].plot(model.xd1[j],model.xd1[i],marker='o',linestyle='none',color='black', markersize=0.4, alpha=max(0.5*(1-model.chain_counter/200.),0.))
+					self.plotkde(model.xd1[j],model.xd1[i],self.ax[i,j])
+				elif(self.plot_type=="scatter"):
+					self.ax[i,j].scatter(model.xd1[j],model.xd1[i],marker='o',c='C0', s=0.4, alpha=0.5);
+				elif(self.plot_type=="hist2d"):
+					self.ax[i,j].hist2d(model.xd1[j],model.xd1[i], bins=(np.arange(0, 1, 0.05), np.arange(0, 1, 0.05)),cmap='Blues')
+				elif(self.plot_type=="hexbin"):
+					self.ax[i,j].hexbin(model.xd1[j],model.xd1[i], gridsize=16,cmap='Blues',linewidths=0.01)
 		# 2D correlations text
 		for i in range(1,model.nvariables):
 			for j in range(0,i):
