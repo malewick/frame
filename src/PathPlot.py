@@ -14,11 +14,11 @@ class PathPlot :
 		self.base_size=1.5
 		self.xb2 = [ [] for i in range(model.nisotopes)]
 
-		xmin=[]
-		xmax=[]
-		for i in range(model.nisotopes):
-			xmin.append(min(model.sources[i])-max(max(model.sources_spread[i]),max(model.sources_stdev[i]))-2)
-			xmax.append(max(model.sources[i])+max(max(model.sources_spread[i]),max(model.sources_stdev[i]))+2)
+		#xmin=[]
+		#xmax=[]
+		#for i in range(model.nisotopes):
+		#	xmin.append(np.min(model.sources[i])-np.max(np.max(model.sources_spread[i]),np.max(model.sources_stdev[i]))-2.)
+		#	xmax.append(np.max(model.sources[i])+np.max(np.max(model.sources_spread[i]),np.max(model.sources_stdev[i]))+2.)
 
 		self.fig, self.ax = plt.subplots(1,2*model.nisotopes-3,figsize=(((2*model.nisotopes-3))*2*self.base_size,2*(self.base_size)))
 		self.fig.subplots_adjust(left=0.22/(2*model.nisotopes-3),right=0.99,bottom=0.2,top=0.98, wspace=0.3)

@@ -1,0 +1,2 @@
+group,mean_S1,median_S1,stdev_S1,lim_low_S1,lim_up_S1,mean_S2,median_S2,stdev_S2,lim_low_S2,lim_up_S2,mean_S3,median_S3,stdev_S3,lim_low_S3,lim_up_S3,mean_r,median_r,stdev_r,lim_low_r,lim_up_r,
+1,0.545547,0.523874,0.165058,0.372200,0.728300,0.225854,0.242781,0.093261,0.119900,0.318800,0.228600,0.235621,0.104227,0.115100,0.337400,0.570879,0.563707,0.243268,0.294200,0.861600,
