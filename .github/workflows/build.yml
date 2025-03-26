@@ -29,11 +29,11 @@ jobs:
         run: pyinstaller FRAME.spec
 
       - name: Debug, show files in dist
-        run: dir dist\FRAME
+        run: dir /s
         shell: cmd
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
           name: frame-windows-exe
-          path: dist/FRAME/FRAME.exe
+          path: dist/**
