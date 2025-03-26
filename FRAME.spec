@@ -17,8 +17,12 @@ a = Analysis(['run/FRAME.py'],
              noarchive=False)
 pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
+
 exe = EXE(pyz,
           a.scripts,
+          a.binaries,
+          a.zipfiles,
+          a.datas,
           [],
           exclude_binaries=False,
           name='FRAME',
