@@ -28,6 +28,11 @@ jobs:
       - name: Build .exe with PyInstaller
         run: pyinstaller FRAME.spec
 
+      - name: Debug: Show files in dist
+        run: dir dist\FRAME
+        shell: cmd
+
+
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
