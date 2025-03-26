@@ -26,7 +26,7 @@ jobs:
           pip install pyinstaller
 
       - name: Build .exe with PyInstaller
-        run: pyinstaller --onefile run/FRAME.py
+        run: pyinstaller --onefile --paths=src run/FRAME.py
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
