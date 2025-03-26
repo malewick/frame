@@ -4,7 +4,7 @@ import os
 
 block_cipher = None
 
-# Read requirements.txt to extract hidden imports
+# Auto-load hidden imports from requirements.txt
 def get_requirements_hidden_imports(path='requirements.txt'):
     hidden = []
     with open(path, 'r') as f:
@@ -12,20 +12,12 @@ def get_requirements_hidden_imports(path='requirements.txt'):
             pkg = line.strip()
             if not pkg or pkg.startswith('#'):
                 continue
-            if '==' in pkg:
-                pkg = pkg.split('==')[0]
-            elif '>=' in pkg:
-                pkg = pkg.split('>=')[0]
-            elif '<=' in pkg:
-                pkg = pkg.split('<=')[0]
-            elif '>' in pkg:
-                pkg = pkg.split('>')[0]
-            elif '<' in pkg:
-                pkg = pkg.split('<')[0]
+            for symbol in ['==', '>=', '<=', '>', '<']:
+                if symbol in pkg:
+                    pkg = pkg.split(symbol)[0]
             hidden.append(pkg)
     return hidden
 
-# Collect hidden imports from requirements.txt
 hidden_imports = get_requirements_hidden_imports()
 
 a = Analysis(
@@ -39,8 +31,7 @@ a = Analysis(
     excludes=[],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
-    cipher=block_cipher,
-    noarchive=False
+    cipher=block_cipher
 )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
@@ -48,23 +39,14 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     [],
-    exclude_binaries=True,
     name='FRAME',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True  # Change to False if GUI-only
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='FRAME'
+    console=True  # Set to False if you want no terminal popup
 )
