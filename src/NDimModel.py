@@ -8,6 +8,7 @@ author: Maciej P. Lewicki
 malewick@cern.ch
 """
 
+import math
 import pandas as pd
 import numpy as np
 from numpy import *
@@ -357,6 +358,7 @@ class Model:
 				strM0+='S[i]['+str(i)+']*f['+str(i)+']+'
 			strM0 = strM0[:-1]
 			self.model_definition = re.sub('M0\[i\]',strM0,self.model_definition)
+			self.model_definition = self.model_definition.lstrip('\ufeff')
 
 			self.sym_model_definition = re.sub(r'\[(\d*)\]',r'\1',self.model_definition)
 			self.sym_model_definition = re.sub('\[i\]','',self.sym_model_definition)
@@ -805,6 +807,11 @@ class Model:
 						for b_k in b:
 							if sumdS==0:
 								L=0
+							elif M_stdev[i]==0:
+								if -sumdS+M[i] < b_k[i] and sumdS+M[i] > b_k[i]:
+									L*=(1./sumdS)
+								else: 
+									L=0
 							else:
 								L *= (1./sumdS) * (  math.erf( (sumdS+M[i]-b_k[i]) / (sqrt(2)*M_stdev[i]) ) - math.erf( (-sumdS+M[i]-b_k[i]) / (sqrt(2)*M_stdev[i]) )  )
 

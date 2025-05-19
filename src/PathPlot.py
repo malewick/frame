@@ -38,6 +38,7 @@ class PathPlot :
 				self.ax[counter].set_xlabel(model.axes_labels[i])
 				self.ax[counter].set_ylabel(model.axes_labels[j])
 
+				print(dfs)
 				self.ax[counter].errorbar(dfs[model.isotopes_list[i]].tolist(), dfs[model.isotopes_list[j]].tolist(),
 						       xerr=dfs["stdev("+model.isotopes_list[i]+")"].tolist(),
 						       yerr=dfs["stdev("+model.isotopes_list[j]+")"].tolist(),

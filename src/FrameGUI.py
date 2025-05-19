@@ -16,6 +16,7 @@ from matplotlib.patches import Rectangle
 import pandas as pd
 import numpy as np
 #from numpy import *
+from math import sqrt, exp, log, pi, sin, cos
 
 import sympy
 
