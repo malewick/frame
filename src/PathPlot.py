@@ -111,6 +111,7 @@ class PathPlot :
 
 		# taking symbolic equation for the model and regexing the indices
 		model_definition = model.sym_model_definition
+		model_definition = model_definition.lstrip('\ufeff')
 		model_definition = re.sub(r'f(\d*)',r'f[\1]',model_definition)
 		model_definition = re.sub(r'r(\d*)',r'r[\1]',model_definition)
 		model_definition = re.sub(r'aux(\d*)',r'aux[i][\1]',model_definition)
