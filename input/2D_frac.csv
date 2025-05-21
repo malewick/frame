@@ -1,4 +1,0 @@
-(M0[i]-A[i])*(1-C[i])+8.6*C[i],,,,,,
-name,d18O,stdev(d18O),spread(d18O),d15N,stdev(d15N),spread(d15N)
-A,-4,2,0,-10,2,0
-C,0.25,0.01,0,0,0,0
