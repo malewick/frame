@@ -1,0 +1,40 @@
+name: Build Windows EXE for powershell execution with args
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # allows manual/manual trigger
+
+jobs:
+  build:
+    name: Build EXE on Windows for powershell execution with args
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.7'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+      - name: Build .exe with PyInstaller
+        run: pyinstaller FRAME_batch.spec
+
+      - name: Debug, show files in dist
+        run: dir /s
+        shell: cmd
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frame-windows-batch-exe
+          path: |
+            build/FRAME_batch/**
+            dist/**
