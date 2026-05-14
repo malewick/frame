@@ -8,7 +8,6 @@ author: Maciej P. Lewicki
 malewick@cern.ch
 """
 
-import math
 import pandas as pd
 import numpy as np
 from numpy import *
@@ -28,6 +27,9 @@ import TimeSeriesPlot
 import PathPlot
 import CorrelationPlot
 import ResultsPlot
+
+from scipy.stats import norm, uniform
+from scipy.signal import fftconvolve
 
 
 def splitall(s):
@@ -148,6 +150,11 @@ class Model:
 
 		self.erf_toggle = True
 
+		# Auxiliary variable prior settings: maps var_name -> (prior_type, r_min, r_max)
+		# Supported prior_type values: 'uniform', 'loguniform'
+		# Defaults to uniform[0, 1] if not explicitly set.
+		self.aux_prior = {}
+
 		self.abort = False
 		self.latex = False
 
@@ -264,10 +271,10 @@ class Model:
 			for spread in self.df_sources["spread("+iso+")"]:
 				spread_sum += spread
 		if spread_sum == 0:
-			print("Using gaussian-like likelihood function.")
+			print("All source spreads are zero: likelihood will use the pure-Gaussian path for all isotopes.")
 			self.erf_toggle = False
 		else :
-			print("Using erf-like likelihood function.")
+			print("Nonzero source spreads detected: likelihood will use numerical convolution per isotope.")
 			
 
 
@@ -333,6 +340,57 @@ class Model:
 		self.burnout=int(burnout)
 		self.max_chain_entries=int(max_chain_entries)
 
+	def set_aux_prior(self, var_name, prior_type='uniform', r_min=0.0, r_max=1.0) :
+		"""Configure the sampling prior for an auxiliary variable.
+
+		Parameters
+		----------
+		var_name : str
+		    Name of the auxiliary variable as it appears in the model equation
+		    (e.g. 'r', 'r1', 'r2').
+		prior_type : str
+		    Sampling distribution. Supported values:
+		    - 'uniform'    — draws from Uniform[r_min, r_max]  (default)
+		    - 'loguniform' — draws from LogUniform[r_min, r_max],
+		                     i.e. log(r) ~ Uniform[log(r_min), log(r_max)].
+		                     Requires r_min > 0 and r_max > 0.
+		r_min : float
+		    Lower bound of the prior range (default 0.0).
+		r_max : float
+		    Upper bound of the prior range (default 1.0).
+
+		Examples
+		--------
+		>>> model.set_aux_prior('r', prior_type='uniform', r_min=0.0, r_max=1.0)
+		>>> model.set_aux_prior('r', prior_type='loguniform', r_min=0.001, r_max=1.0)
+		"""
+		supported = ('uniform', 'loguniform')
+		if prior_type not in supported:
+			raise ValueError(
+				f"Unknown prior_type '{prior_type}'. Supported: {supported}"
+			)
+		r_min = float(r_min)
+		r_max = float(r_max)
+		if prior_type == 'loguniform' and (r_min <= 0 or r_max <= 0):
+			raise ValueError(
+				f"loguniform prior requires r_min > 0 and r_max > 0 "
+				f"(got r_min={r_min}, r_max={r_max})"
+			)
+		if r_min >= r_max:
+			raise ValueError(
+				f"r_min must be strictly less than r_max "
+				f"(got r_min={r_min}, r_max={r_max})"
+			)
+		self.aux_prior[var_name] = (prior_type, r_min, r_max)
+
+	def _sample_aux_prior(self, var_name) :
+		"""Draw one sample from the configured prior for *var_name*."""
+		prior_type, r_min, r_max = self.aux_prior.get(var_name, ('uniform', 0.0, 1.0))
+		if prior_type == 'loguniform':
+			return float(np.exp(np.random.uniform(np.log(r_min), np.log(r_max))))
+		else:
+			return float(np.random.uniform(r_min, r_max))
+
 	def set_up_data(self) :
 
 		if self.initialized==True:
@@ -357,11 +415,11 @@ class Model:
 			for i in range(len(self.sources_list)):
 				strM0+='S[i]['+str(i)+']*f['+str(i)+']+'
 			strM0 = strM0[:-1]
-			self.model_definition = re.sub('M0\[i\]',strM0,self.model_definition)
+			self.model_definition = re.sub(r'M0\[i\]',strM0,self.model_definition)
 			self.model_definition = self.model_definition.lstrip('\ufeff')
 
 			self.sym_model_definition = re.sub(r'\[(\d*)\]',r'\1',self.model_definition)
-			self.sym_model_definition = re.sub('\[i\]','',self.sym_model_definition)
+			self.sym_model_definition = re.sub(r'\[i\]','',self.sym_model_definition)
 
 			self.sym_model_derivatives=[]
 			self.model_derivatives.clear()
@@ -447,6 +505,7 @@ class Model:
 
 		self.mapPar={}
 		self.stdevPar={}
+		self.spreadPar={}
 		self.dMdPar={}
 		print("----")
 		print(self.sources_list)
@@ -454,11 +513,19 @@ class Model:
 		for j in range(self.nsources) :
 			self.mapPar[self.sources_list[j]] = [self.sources[i][j] for i in range(self.nisotopes)]
 			self.stdevPar[self.sources_list[j]] = [self.sources_stdev[i][j] for i in range(self.nisotopes)]
+			self.spreadPar[self.sources_list[j]] = [self.sources_spread[i][j] for i in range(self.nisotopes)]
 			self.dMdPar[self.sources_list[j]] = self.model_derivatives[j]
 		for j in range(self.nauxpars) :
 			self.mapPar[self.aux_pars[j]] = [self.aux[i][j] for i in range(self.nisotopes)]
 			self.stdevPar[self.aux_pars[j]] = [self.aux_stdev[i][j] for i in range(self.nisotopes)]
+			self.spreadPar[self.aux_pars[j]] = [self.aux_spread[i][j] for i in range(self.nisotopes)]
 			self.dMdPar[self.aux_pars[j]] = self.model_derivatives[self.nsources + j]
+
+		# Pre-compile derivative expressions so the hot MCMC loop avoids
+		# re-parsing strings on every iteration.
+		self.dMdPar_code = {par: compile(expr, "<dMdPar>", "eval") for par, expr in self.dMdPar.items()}
+		if self.aux_toggle:
+			self.model_definition_code = compile(self.model_definition, "<model_definition>", "eval")
 
 		print("self.mapPar: ",self.mapPar)
 		print("self.stdevPar: ",self.stdevPar)
@@ -558,6 +625,29 @@ class Model:
 			f_out.write(self.default_delimiter)
 			f_out.write("{:.6f}".format(err95_high))
 			f_out.write(self.default_delimiter)
+
+		# --- Z scores ---
+		z_scores, z_pred_scores = self._compute_z_scores()
+
+		def _fmt_z(v):
+			return "nan" if np.isnan(v) else "{:.4f}".format(v)
+
+		print()
+		print("Z scores — SEM-based (Eqs. 19-20): systematic bias, grows with sqrt(chain length)")
+		for iso, z_val in zip(self.isotopes_list, z_scores):
+			print("  z_{:s} = {:s}".format(iso, _fmt_z(z_val)))
+		print()
+		print("Z scores — predictive (chain-length independent): measurement vs. predictive 1-sigma range")
+		for iso, z_val in zip(self.isotopes_list, z_pred_scores):
+			print("  z_pred_{:s} = {:s}".format(iso, _fmt_z(z_val)))
+		print()
+
+		for z_val in z_scores:
+			f_out.write("nan" if np.isnan(z_val) else "{:.6f}".format(z_val))
+			f_out.write(self.default_delimiter)
+		for z_val in z_pred_scores:
+			f_out.write("nan" if np.isnan(z_val) else "{:.6f}".format(z_val))
+			f_out.write(self.default_delimiter)
 		f_out.write("\n")
 
 		print()
@@ -586,6 +676,89 @@ class Model:
 		for row in self.xd2:
 			row.clear()
 
+
+	def _compute_z_scores(self):
+		"""Compute two complementary Z scores per isotope.
+
+		Both scores measure how many standard deviations the measured value lies
+		away from the nearest model-consistent solution, but they differ in what
+		they use as the "standard deviation":
+
+		z (Eqs. 19-20, PLOS ONE doi:10.1371/journal.pone.0277204)
+		  Uses SEM = sigma/sqrt(n) — the precision of the estimated mean.
+		  Tests for systematic bias between the model mean and the measurement.
+		  Grows with sqrt(n), so longer chains increase apparent significance.
+
+		  * z_i = |x_i - mu_i| / SEM_i                          (no spread, Eq. 19)
+		  * z_i = 0                    if |x_i - mu_i| <= Δ_i   (with spread, Eq. 20)
+		  * z_i = (|x_i - mu_i| - Δ_i) / SEM_i  otherwise
+
+		z_pred (posterior predictive check, chain-length independent)
+		  Uses sigma — the full spread of the model's predictive distribution.
+		  Tests whether the measurement falls outside the model's credible range.
+		  Invariant to chain length; directly answers "is x outside 1-sigma?".
+
+		  * z_pred_i = |x_i - mu_i| / sigma_i                   (no spread)
+		  * z_pred_i = 0                  if |x_i - mu_i| <= Δ_i  (with spread)
+		  * z_pred_i = (|x_i - mu_i| - Δ_i) / sigma_i  otherwise
+
+		Common quantities:
+		  x_i     = mean measured isotope value for the group
+		  mu_i    = mean of the Markov-chain model predictions (xd2[i])
+		  sigma_i = std of the Markov-chain model predictions
+		  n       = number of chain entries
+		  SEM_i   = sigma_i / sqrt(n)
+		  Δ_i     = sum_par( |dM/dpar| * spread_par_i ) at chain-mean (f, r)
+
+		Returns: (z_scores, z_pred_scores) — one value per isotope in each list.
+		"""
+		nan_result = [float('nan')] * self.nisotopes
+		if len(self.xd2[0]) < 2:
+			return nan_result, nan_result
+
+		# Evaluate derivatives at chain-mean variables
+		f = np.array([np.mean(self.xd1[j]) for j in range(self.nsources)])
+		r = [np.mean(self.xd1[self.nsources + j]) for j in range(self.nauxvars)]
+		aux = self.aux
+		S   = self.sources
+
+		z_scores      = []
+		z_pred_scores = []
+		for i, iso in enumerate(self.isotopes_list):
+			x_i     = np.mean([b_k[i] for b_k in self.b])
+			mu_i    = np.mean(self.xd2[i])
+			sigma_i = np.std(self.xd2[i])
+			n_chain = len(self.xd2[i])
+			sem_i   = sigma_i / np.sqrt(n_chain) if n_chain > 0 else 0.0
+
+			# Effective half-width from source spreads (Eq. 20)
+			delta_i = 0.0
+			for par in self.mapPar:
+				dM_val   = abs(eval(self.dMdPar[par]))
+				delta_i += dM_val * self.spreadPar[par][i]
+
+			diff = abs(x_i - mu_i)
+
+			# --- SEM-based Z (Eqs. 19-20) ---
+			if sem_i == 0.0:
+				z_i = float('nan')
+			elif delta_i > 0.0:
+				z_i = 0.0 if diff <= delta_i else (diff - delta_i) / sem_i
+			else:
+				z_i = diff / sem_i
+
+			# --- Predictive Z (chain-length independent) ---
+			if sigma_i == 0.0:
+				z_pred_i = float('nan')
+			elif delta_i > 0.0:
+				z_pred_i = 0.0 if diff <= delta_i else (diff - delta_i) / sigma_i
+			else:
+				z_pred_i = diff / sigma_i
+
+			z_scores.append(z_i)
+			z_pred_scores.append(z_pred_i)
+
+		return z_scores, z_pred_scores
 
 	def run_model(self) :
 
@@ -621,6 +794,10 @@ class Model:
 			f_out.write("CI68_up"+cl+self.default_delimiter)
 			f_out.write("CI95_low"+cl+self.default_delimiter)
 			f_out.write("CI95_up"+cl+self.default_delimiter)
+		for iso in self.isotopes_list:
+			f_out.write("z_"+iso+self.default_delimiter)
+		for iso in self.isotopes_list:
+			f_out.write("z_pred_"+iso+self.default_delimiter)
 		f_out.write("\n")
 
 
@@ -716,8 +893,8 @@ class Model:
 
 				# sample self.sources ratios from Dirichlet with the same means
 				f = np.random.dirichlet((1.,)*self.nsources)
-				# sample r from uniform distribution
-				r = [np.random.uniform() for i in range(0,self.nauxvars)]
+				# sample r from the configured prior (uniform by default)
+				r = [self._sample_aux_prior(self.aux_vars[i]) for i in range(self.nauxvars)]
 
 				# initialize log-likelihood (unnormalized)
 				L=1.
@@ -776,49 +953,74 @@ class Model:
 						#print("r[0]",r[0])
 						#print((M0[i]-aux[0][i]*r[0])*(1-aux[1][i])+8.6*aux[1][i])
 						#print()
-						M[i] = eval(self.model_definition)
+						M[i] = eval(self.model_definition_code)
 				else :
 					M = M0.copy()
 
-				# calculate standard deviations
-				# 
-				# it has a form of: sqrt( sum_i( dM/dPar_i stdev(Par_i) )  )
-				# plus contribution from measurement errors
-				
+				# Combined Gaussian sigma: error propagation from source stdevs plus data measurement uncertainty.
+				# Each term: (dM/dPar_i * stdev_i)^2, summed in quadrature.
 				M_stdev=np.zeros(shape=(self.nisotopes),dtype='double')
 
 				for i in range(self.nisotopes):
-					# measured data uncertainty
 					M_stdev[i] += stdev2_data[i]
-
 					for par in self.mapPar:
-						M_stdev[i] += (eval(self.dMdPar[par])*self.stdevPar[par][i])**2
-						
+						M_stdev[i] += (eval(self.dMdPar_code[par])*self.stdevPar[par][i])**2
 					M_stdev[i]=np.sqrt(M_stdev[i])
 
 				for i in range(self.nisotopes):
-					# Erf-like likelihood
-					if self.erf_toggle:
-						sumdS=0
-						for j,src in enumerate(self.sources_list):
-							sumdS+=eval(self.dMdPar[src]) * self.sources_spread[i][j]
-						for j,par in enumerate(self.aux_pars):
-							sumdS+=eval(self.dMdPar[par]) * self.aux_spread[i][j]
-						for b_k in b:
-							if sumdS==0:
-								L=0
-							elif M_stdev[i]==0:
-								if -sumdS+M[i] < b_k[i] and sumdS+M[i] > b_k[i]:
-									L*=(1./sumdS)
-								else: 
-									L=0
-							else:
-								L *= (1./sumdS) * (  math.erf( (sumdS+M[i]-b_k[i]) / (sqrt(2)*M_stdev[i]) ) - math.erf( (-sumdS+M[i]-b_k[i]) / (sqrt(2)*M_stdev[i]) )  )
+					# Collect the effective half-width of the uniform uncertainty for each parameter.
+					# For a source/aux par with spread d, its contribution to the uncertainty in M is
+					# Uniform(-|dM/dPar|*d, +|dM/dPar|*d), a symmetric distribution centered at zero.
+					uniform_halfwidths = []
+					for par in self.mapPar:
+						w = abs(eval(self.dMdPar_code[par])) * self.spreadPar[par][i]
+						if w > 0:
+							uniform_halfwidths.append(w)
 
-					# Gaussian-like likelihood
-					else :
+					if not uniform_halfwidths:
+						# Pure Gaussian path - fast analytical evaluation
+						if M_stdev[i] > 0:
+							pdf = norm(loc=M[i], scale=M_stdev[i])
+							for b_k in b:
+								L *= pdf.pdf(b_k[i])
+					else:
+						# Numerical convolution path.
+						# The likelihood is the convolution of:
+						#   - one Gaussian (combined stdev from all sources + data uncertainty)
+						#   - one symmetric Uniform per parameter with nonzero spread
+						# evaluated at (b_k[i] - M[i]).
+						#
+						# n_conv_points controls the resolution/speed trade-off.
+						# Fewer points = faster but coarser; 200 is a practical default.
+						n_conv_points = 200
+
+						total_spread = sum(uniform_halfwidths)
+						max_eval_dist = float(np.max([abs(b_k[i] - M[i]) for b_k in b]))
+						half_width = total_spread + float(np.maximum(5.0 * M_stdev[i], total_spread * 0.1)) + max_eval_dist
+
+						x_conv = np.linspace(-half_width, half_width, n_conv_points)
+						dx = x_conv[1] - x_conv[0]
+
+						# Start with the combined Gaussian, or a delta-function approximation when stdev = 0
+						if M_stdev[i] > 0:
+							compound_pdf = norm(loc=0.0, scale=M_stdev[i]).pdf(x_conv)
+						else:
+							compound_pdf = np.zeros(n_conv_points)
+							compound_pdf[n_conv_points // 2] = 1.0 / dx
+
+					# Sequentially convolve in each uniform component.
+					# Using direct numpy array ops avoids scipy object overhead.
+					for w in uniform_halfwidths:
+						u_pdf = np.where((x_conv >= -w) & (x_conv <= w), 1.0 / (2.0 * w), 0.0)
+						compound_pdf = fftconvolve(compound_pdf, u_pdf, mode='same') * dx
+
+						# Renormalize to correct for fftconvolve edge truncation
+						norm_factor = np.sum(compound_pdf) * dx
+						if norm_factor > 0:
+							compound_pdf /= norm_factor
+
 						for b_k in b:
-							L *= (1./M_stdev[i]/np.sqrt(2.*np.pi)) * np.exp( -(b_k[i]-M[i])**2./(2.*M_stdev[i]) )
+							L *= float(np.interp(b_k[i] - M[i], x_conv, compound_pdf, left=0.0, right=0.0))
 
 
 				# if Metropolis condition fulfilled
@@ -885,14 +1087,17 @@ class Model:
 							print("metropolis plotting [s]:",timer_metropolis_end-timer_metropolis_start)
 
 
-			f_row.close()
+		f_row.close()
 
-			if (self.chain_counter < self.max_chain_entries and not self.abort):
-				print("Terminating - reached limit of max iterations.")
-			self.sim_finished(group,f_out)
+		# Store current group's measurements so sim_finished can access them for Z scores
+		self.b = b
 
-			print("Finished for group ", group)
-			print()
+		if (self.chain_counter < self.max_chain_entries and not self.abort):
+			print("Terminating - reached limit of max iterations.")
+		self.sim_finished(group,f_out)
+
+		print("Finished for group ", group)
+		print()
 
 		f_out.close()
 

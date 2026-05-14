@@ -327,6 +327,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
 		self.ndim=0
 
+		# maps aux var name -> (QComboBox, QLineEdit_min, QLineEdit_max)
+		self.prior_widgets = {}
 
 		self.table1 = QtWidgets.QTableView()
 		self.model1 = TableModel(self.df_data)
@@ -424,7 +426,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		gbs.setLayout(self.layout_dropdown2)
 		gbs.setFont(QtGui.QFont('Sans', 11))
 
-		self.layout_dropdown1 = QtWidgets.QHBoxLayout();
+		self.layout_dropdown1 = QtWidgets.QVBoxLayout()
 		self.auxvar_qlabels=[]
 		self.auxvar_qlabels.append(QtWidgets.QLabel("-"))
 		for ql in self.auxvar_qlabels:
@@ -613,6 +615,11 @@ class MainWindow(QtWidgets.QMainWindow):
 		layout_data2.addLayout(layout2,1,1)
 		layout_data2.addLayout(layout3,1,2)
 		layout_data2.addLayout(layout_allothers,1,3)
+		# plots grow when the window is widened; controls panel stays fixed
+		layout_data2.setColumnStretch(0, 1)
+		layout_data2.setColumnStretch(1, 1)
+		layout_data2.setColumnStretch(2, 1)
+		layout_data2.setColumnStretch(3, 0)
 
 
 
@@ -1123,16 +1130,45 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.table3.setModel(self.model3)
 
 		# clearing layout
-		for i in reversed(range(self.layout_dropdown1.count())):
-			widgetToRemove = self.layout_dropdown1.itemAt(i).widget()
-			self.layout_dropdown1.removeWidget(widgetToRemove)
-			widgetToRemove.setParent(None)
+		# clearing layout — handles both plain widgets and sub-layouts (QHBoxLayout rows)
+		while self.layout_dropdown1.count():
+			item = self.layout_dropdown1.takeAt(0)
+			if item.widget():
+				item.widget().setParent(None)
+			elif item.layout():
+				while item.layout().count():
+					sub = item.layout().takeAt(0)
+					if sub.widget():
+						sub.widget().setParent(None)
 
-		self.auxvar_qlabels=[]
+		self.auxvar_qlabels = []
+		self.prior_widgets = {}
 		for v in self.mcmc_model.aux_vars:
-			self.auxvar_qlabels.append(QtWidgets.QLabel(v))
-		for ql in self.auxvar_qlabels:
-			self.layout_dropdown1.addWidget(ql)
+			# one compact row per auxiliary variable
+			row = QtWidgets.QHBoxLayout()
+
+			lbl = QtWidgets.QLabel(v + ":")
+			self.auxvar_qlabels.append(lbl)
+			row.addWidget(lbl)
+
+			combo = QtWidgets.QComboBox()
+			combo.addItems(["uniform", "loguniform"])
+			combo.setMaximumWidth(100)
+			row.addWidget(combo)
+
+			min_edit = QtWidgets.QLineEdit("0.0")
+			min_edit.setMaximumWidth(50)
+			min_edit.setToolTip("Prior lower bound (r_min)")
+			row.addWidget(min_edit)
+
+			max_edit = QtWidgets.QLineEdit("1.0")
+			max_edit.setMaximumWidth(50)
+			max_edit.setToolTip("Prior upper bound (r_max)")
+			row.addWidget(max_edit)
+
+			row.addStretch(1)
+			self.layout_dropdown1.addLayout(row)
+			self.prior_widgets[v] = (combo, min_edit, max_edit)
 
 		# clearing layout
 		for i in reversed(range(self.layout_dropdown3.count())):
@@ -1211,6 +1247,17 @@ class MainWindow(QtWidgets.QMainWindow):
 		#	self.mcmc_model.moveToThread(self.thread)
 		#	self.thread.started.connect(self.mcmc_model.process)
 		#	self.thread.start()
+
+		for var_name, (combo, min_edit, max_edit) in self.prior_widgets.items():
+			try:
+				model.set_aux_prior(
+					var_name,
+					prior_type=combo.currentText(),
+					r_min=float(min_edit.text()),
+					r_max=float(max_edit.text()),
+				)
+			except Exception as e:
+				print(f"Warning: could not set prior for '{var_name}': {e}")
 
 		model.run_model()
 		self.progressbar.setValue(100)
