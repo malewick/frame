@@ -878,9 +878,10 @@ class Model:
 				for i in range(self.nisotopes):
 					stdev2_data[i] += row["stdev("+self.isotopes_list[i]+")"]**2
 
-			self.chain_counter=0
+		self.chain_counter=0
+		self.burnout_announced = False
 
-			start = time.time()
+		start = time.time()
 
 
 			# run random sampling niter times
@@ -913,7 +914,8 @@ class Model:
 					print("time/"+str(checkpoint)+" iters: "+str("{:.3f}".format(end - start))+'s')
 					start = time.time()
 
-					if(self.burnout_chain_len>=self.burnout):
+					if(self.burnout_chain_len>=self.burnout and not self.burnout_announced):
+						self.burnout_announced = True
 						print("end of burnout")
 						tstart = time.time()
 
