@@ -878,11 +878,10 @@ class Model:
 				for i in range(self.nisotopes):
 					stdev2_data[i] += row["stdev("+self.isotopes_list[i]+")"]**2
 
-		self.chain_counter=0
-		self.burnout_announced = False
+			self.chain_counter=0
+			self.burnout_chain_len=0
 
-		start = time.time()
-
+			start = time.time()
 
 			# run random sampling niter times
 			for self.ii in range(self.niter):
@@ -913,11 +912,6 @@ class Model:
 					end = time.time()
 					print("time/"+str(checkpoint)+" iters: "+str("{:.3f}".format(end - start))+'s')
 					start = time.time()
-
-					if(self.burnout_chain_len>=self.burnout and not self.burnout_announced):
-						self.burnout_announced = True
-						print("end of burnout")
-						tstart = time.time()
 
 					if (self.chain_counter >= self.max_chain_entries):
 						print("Terminating loop - already have enough in the chains.")
@@ -1078,6 +1072,9 @@ class Model:
 							self.xd2[i].append(M[i])
 					else:
 						self.burnout_chain_len+=1
+						if self.burnout_chain_len==self.burnout:
+							print("end of burnout")
+							tstart = time.time()
 
 
 					if self.plotting_switch:
@@ -1089,17 +1086,17 @@ class Model:
 							print("metropolis plotting [s]:",timer_metropolis_end-timer_metropolis_start)
 
 
-		f_row.close()
+			f_row.close()
 
-		# Store current group's measurements so sim_finished can access them for Z scores
-		self.b = b
+			# Store current group's measurements so sim_finished can access them for Z scores
+			self.b = b
 
-		if (self.chain_counter < self.max_chain_entries and not self.abort):
-			print("Terminating - reached limit of max iterations.")
-		self.sim_finished(group,f_out)
+			if (self.chain_counter < self.max_chain_entries and not self.abort):
+				print("Terminating - reached limit of max iterations.")
+			self.sim_finished(group,f_out)
 
-		print("Finished for group ", group)
-		print()
+			print("Finished for group ", group)
+			print()
 
 		f_out.close()
 
