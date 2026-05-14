@@ -3,6 +3,8 @@
 
 Welcome to FRAME — a Bayesian stable isotope mixing model with a friendly graphical interface.
 
+**Easiest entry point:** if you know a little Python but do not want to install software locally, **[open FRAME in Google Colab](#install)** — it runs in the browser at no cost ([direct link](https://colab.research.google.com/github/malewick/frame/blob/main/docs/colab_demo.ipynb)).
+
 ---
 
 ## About
@@ -16,6 +18,7 @@ Key capabilities:
 - **Custom model equations** for any fractionation process (open-system, Rayleigh-type, equilibrium, etc.)
 - **Selectable prior** for auxiliary variables (`uniform` or `log-uniform`), configurable from the GUI or the Python API
 - **Graphical interface** and **headless batch mode** (Python script or Windows executable)
+- **Google Colab** — full MCMC demos in the browser (**no installation**); ideal if you know even a little Python
 
 The scientific background and detailed case studies are published in:
 
@@ -26,14 +29,27 @@ The scientific background and detailed case studies are published in:
 
 ## Install
 
+### Try FRAME in Google Colab — no installation
+
+> **If you have a Google account and basic Python familiarity, you can run FRAME entirely in your browser.** There is nothing to download, configure, or compile — open the notebook, run the cells top to bottom, and you get the same numerical results and diagnostic plots as a local batch run.
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/malewick/frame/blob/main/docs/colab_demo.ipynb)
+
+The notebook [`docs/colab_demo.ipynb`](https://github.com/malewick/frame/blob/main/docs/colab_demo.ipynb) clones the repository for you inside Colab and handles dependencies automatically. It includes a plain 2-D mixing example, a fractionation run with selectable priors for the auxiliary variable `r`, tables of results, and inline figures.
+
+[**Open the FRAME demo in Google Colab →**](https://colab.research.google.com/github/malewick/frame/blob/main/docs/colab_demo.ipynb)
+
+---
+
 **Latest release: v2.0**
 
 | Platform | Download |
 |---|---|
+| Browser (recommended first try) | [Open demo in Google Colab](https://colab.research.google.com/github/malewick/frame/blob/main/docs/colab_demo.ipynb) — Python notebook, zero install |
 | Windows (GUI + batch) | [Download EXE — v2.0](https://github.com/malewick/frame/releases/latest) |
 | All platforms (source) | [GitHub repository](https://github.com/malewick/frame) |
 
-For source installation instructions see the [README](https://github.com/malewick/frame#install).
+For local source installation instructions see the [README](https://github.com/malewick/frame#install).
 
 ---
 
@@ -100,7 +116,7 @@ python run/run_batch.py data.csv sources.csv --aux_file frac.csv \
 | `--aux_r_min` | `0.0` | Lower bound of the `r` prior |
 | `--aux_r_max` | `1.0` | Upper bound of the `r` prior |
 
-A worked Colab notebook is available: [docs/colab_demo.ipynb](https://github.com/malewick/frame/blob/main/docs/colab_demo.ipynb).
+The same workflow (clone repo, configure paths, interpret outputs) is explained step by step in the [**Google Colab demo**](#install) above — no local setup required.
 
 ---
 
