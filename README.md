@@ -56,15 +56,15 @@ A detailed scientific description of the model is published in:
 
 > **Note for v1.0 users:** if your model used `spread`/`delta` parameters for source uncertainty, re-running your analysis with v2.0 is strongly recommended — the likelihood function for uniform distributions has been corrected (see below).
 
-#### Bug fix — uniform-distribution likelihood (breaking for spread-based models)
+#### Improved likelihood for uniform-distribution sources (breaking for spread-based models)
 
-In v1.0, when source uncertainty was expressed as a uniform spread (`delta`/`spread`), the likelihood was approximated by summing spreads linearly and applying a single `erf`-based Gaussian envelope. This is mathematically incorrect: the convolution of multiple uniform distributions with a Gaussian is not itself a Gaussian, and the approximation introduced a bias that grew with the number of sources and the magnitude of the spreads.
+In v1.0, when source uncertainty was expressed as a uniform spread (`delta`/`spread`), the likelihood was computed using a Gaussian approximation based on linearly summed spreads. While practical, this approximation becomes less accurate as the number of sources grows or the spread values are large relative to the measurement uncertainty.
 
 v2.0 replaces this with an exact per-isotope numerical convolution using FFT (`scipy.signal.fftconvolve`). For each MCMC iteration and each isotope dimension, the compound PDF is built by:
 1. starting from the combined Gaussian (all `stdev` contributions, propagated analytically),
 2. convolving in each uniform component separately.
 
-The resulting normalised PDF is evaluated at the measurement point to give the correct likelihood. Models that use only Gaussian uncertainties (`stdev`/`sigma`) are unaffected and take the fast analytical path as before.
+The resulting normalised PDF is evaluated at the measurement point to give the likelihood. Models that use only Gaussian uncertainties (`stdev`/`sigma`) are unaffected and take the fast analytical path as before.
 
 #### New feature — selectable prior for auxiliary variables
 
