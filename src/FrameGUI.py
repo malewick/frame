@@ -426,7 +426,7 @@ class MainWindow(QtWidgets.QMainWindow):
 		gbs.setLayout(self.layout_dropdown2)
 		gbs.setFont(QtGui.QFont('Sans', 11))
 
-		self.layout_dropdown1 = QtWidgets.QHBoxLayout();
+		self.layout_dropdown1 = QtWidgets.QVBoxLayout()
 		self.auxvar_qlabels=[]
 		self.auxvar_qlabels.append(QtWidgets.QLabel("-"))
 		for ql in self.auxvar_qlabels:
@@ -1125,32 +1125,44 @@ class MainWindow(QtWidgets.QMainWindow):
 		self.table3.setModel(self.model3)
 
 		# clearing layout
-		for i in reversed(range(self.layout_dropdown1.count())):
-			widgetToRemove = self.layout_dropdown1.itemAt(i).widget()
-			self.layout_dropdown1.removeWidget(widgetToRemove)
-			widgetToRemove.setParent(None)
+		# clearing layout — handles both plain widgets and sub-layouts (QHBoxLayout rows)
+		while self.layout_dropdown1.count():
+			item = self.layout_dropdown1.takeAt(0)
+			if item.widget():
+				item.widget().setParent(None)
+			elif item.layout():
+				while item.layout().count():
+					sub = item.layout().takeAt(0)
+					if sub.widget():
+						sub.widget().setParent(None)
 
 		self.auxvar_qlabels = []
 		self.prior_widgets = {}
 		for v in self.mcmc_model.aux_vars:
+			# one compact row per auxiliary variable
+			row = QtWidgets.QHBoxLayout()
+
 			lbl = QtWidgets.QLabel(v + ":")
 			self.auxvar_qlabels.append(lbl)
-			self.layout_dropdown1.addWidget(lbl)
+			row.addWidget(lbl)
 
 			combo = QtWidgets.QComboBox()
 			combo.addItems(["uniform", "loguniform"])
-			self.layout_dropdown1.addWidget(combo)
+			combo.setMaximumWidth(100)
+			row.addWidget(combo)
 
-			self.layout_dropdown1.addWidget(QtWidgets.QLabel("min:"))
 			min_edit = QtWidgets.QLineEdit("0.0")
-			min_edit.setMaximumWidth(60)
-			self.layout_dropdown1.addWidget(min_edit)
+			min_edit.setMaximumWidth(50)
+			min_edit.setToolTip("Prior lower bound (r_min)")
+			row.addWidget(min_edit)
 
-			self.layout_dropdown1.addWidget(QtWidgets.QLabel("max:"))
 			max_edit = QtWidgets.QLineEdit("1.0")
-			max_edit.setMaximumWidth(60)
-			self.layout_dropdown1.addWidget(max_edit)
+			max_edit.setMaximumWidth(50)
+			max_edit.setToolTip("Prior upper bound (r_max)")
+			row.addWidget(max_edit)
 
+			row.addStretch(1)
+			self.layout_dropdown1.addLayout(row)
 			self.prior_widgets[v] = (combo, min_edit, max_edit)
 
 		# clearing layout
