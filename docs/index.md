@@ -61,21 +61,44 @@ The example input files are included with the release. Real-world datasets are a
 
 ## Batch / scripting mode
 
-FRAME can be run without the GUI. On Windows use `FRAME_batch.exe`; from source use `run/run_batch.py`:
+FRAME can be run without the GUI — useful for processing many samples or automating analyses.
+
+**Windows (PowerShell) — using the pre-built executable:**
+
+```powershell
+.\FRAME_batch.exe data.csv sources.csv --aux_file frac.csv `
+    --output_dir results --niter 500000 --burnout 200 --chain_length 500 `
+    --plot_online False
+```
+
+With a log-uniform prior on the fractionation variable `r`:
+
+```powershell
+.\FRAME_batch.exe data.csv sources.csv --aux_file frac.csv `
+    --aux_prior_type loguniform --aux_r_min 0.001 --aux_r_max 1.0 `
+    --output_dir results --plot_online False
+```
+
+**All platforms — from source:**
 
 ```bash
 python run/run_batch.py data.csv sources.csv --aux_file frac.csv \
     --output_dir results --niter 500000 --chain_length 500 --plot_online False
 ```
 
-For a log-uniform prior on the fractionation variable `r`:
-
-```bash
-python run/run_batch.py data.csv sources.csv --aux_file frac.csv \
-    --aux_prior_type loguniform --aux_r_min 0.001 --aux_r_max 1.0
-```
-
-Full argument reference is in the [README](https://github.com/malewick/frame#windows--powershell-executable).
+| Argument | Default | Description |
+|---|---|---|
+| `--aux_file` | *(none)* | Path to auxiliary parameters CSV |
+| `--output_dir` | `output` | Directory for results |
+| `--output_filenames` | *(auto)* | Custom tag for output file names |
+| `--output_formats` | `pdf,png` | Comma-separated plot formats |
+| `--niter` | `1000000` | Maximum MCMC iterations |
+| `--burnout` | `100` | Burn-in steps |
+| `--chain_length` | `500` | Accepted steps to record |
+| `--plot_online` | `True` | Live plotting (`True`/`False`) |
+| `--aux_prior_type` | `uniform` | Prior for `r`: `uniform` or `loguniform` |
+| `--aux_r_min` | `0.0` | Lower bound of the `r` prior |
+| `--aux_r_max` | `1.0` | Upper bound of the `r` prior |
 
 A worked Colab notebook is available: [docs/colab_demo.ipynb](https://github.com/malewick/frame/blob/main/docs/colab_demo.ipynb).
 
