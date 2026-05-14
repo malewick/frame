@@ -615,6 +615,11 @@ class MainWindow(QtWidgets.QMainWindow):
 		layout_data2.addLayout(layout2,1,1)
 		layout_data2.addLayout(layout3,1,2)
 		layout_data2.addLayout(layout_allothers,1,3)
+		# plots grow when the window is widened; controls panel stays fixed
+		layout_data2.setColumnStretch(0, 1)
+		layout_data2.setColumnStretch(1, 1)
+		layout_data2.setColumnStretch(2, 1)
+		layout_data2.setColumnStretch(3, 0)
 
 
 
