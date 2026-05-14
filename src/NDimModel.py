@@ -150,6 +150,11 @@ class Model:
 
 		self.erf_toggle = True
 
+		# Auxiliary variable prior settings: maps var_name -> (prior_type, r_min, r_max)
+		# Supported prior_type values: 'uniform', 'loguniform'
+		# Defaults to uniform[0, 1] if not explicitly set.
+		self.aux_prior = {}
+
 		self.abort = False
 		self.latex = False
 
@@ -334,6 +339,57 @@ class Model:
 		self.niter=int(niter)
 		self.burnout=int(burnout)
 		self.max_chain_entries=int(max_chain_entries)
+
+	def set_aux_prior(self, var_name, prior_type='uniform', r_min=0.0, r_max=1.0) :
+		"""Configure the sampling prior for an auxiliary variable.
+
+		Parameters
+		----------
+		var_name : str
+		    Name of the auxiliary variable as it appears in the model equation
+		    (e.g. 'r', 'r1', 'r2').
+		prior_type : str
+		    Sampling distribution. Supported values:
+		    - 'uniform'    — draws from Uniform[r_min, r_max]  (default)
+		    - 'loguniform' — draws from LogUniform[r_min, r_max],
+		                     i.e. log(r) ~ Uniform[log(r_min), log(r_max)].
+		                     Requires r_min > 0 and r_max > 0.
+		r_min : float
+		    Lower bound of the prior range (default 0.0).
+		r_max : float
+		    Upper bound of the prior range (default 1.0).
+
+		Examples
+		--------
+		>>> model.set_aux_prior('r', prior_type='uniform', r_min=0.0, r_max=1.0)
+		>>> model.set_aux_prior('r', prior_type='loguniform', r_min=0.001, r_max=1.0)
+		"""
+		supported = ('uniform', 'loguniform')
+		if prior_type not in supported:
+			raise ValueError(
+				f"Unknown prior_type '{prior_type}'. Supported: {supported}"
+			)
+		r_min = float(r_min)
+		r_max = float(r_max)
+		if prior_type == 'loguniform' and (r_min <= 0 or r_max <= 0):
+			raise ValueError(
+				f"loguniform prior requires r_min > 0 and r_max > 0 "
+				f"(got r_min={r_min}, r_max={r_max})"
+			)
+		if r_min >= r_max:
+			raise ValueError(
+				f"r_min must be strictly less than r_max "
+				f"(got r_min={r_min}, r_max={r_max})"
+			)
+		self.aux_prior[var_name] = (prior_type, r_min, r_max)
+
+	def _sample_aux_prior(self, var_name) :
+		"""Draw one sample from the configured prior for *var_name*."""
+		prior_type, r_min, r_max = self.aux_prior.get(var_name, ('uniform', 0.0, 1.0))
+		if prior_type == 'loguniform':
+			return float(np.exp(np.random.uniform(np.log(r_min), np.log(r_max))))
+		else:
+			return float(np.random.uniform(r_min, r_max))
 
 	def set_up_data(self) :
 
@@ -570,22 +626,27 @@ class Model:
 			f_out.write("{:.6f}".format(err95_high))
 			f_out.write(self.default_delimiter)
 
-		# --- Z scores (Eqs. 19-20) ---
-		z_scores = self._compute_z_scores()
+		# --- Z scores ---
+		z_scores, z_pred_scores = self._compute_z_scores()
+
+		def _fmt_z(v):
+			return "nan" if np.isnan(v) else "{:.4f}".format(v)
+
 		print()
-		print("Z scores (standard deviations from the nearest model-consistent solution):")
-		for i, iso in enumerate(self.isotopes_list):
-			z_val = z_scores[i]
-			if np.isnan(z_val):
-				print("  z_{:s} = nan  (chain too short)".format(iso))
-			else:
-				print("  z_{:s} = {:.4f}".format(iso, z_val))
+		print("Z scores — SEM-based (Eqs. 19-20): systematic bias, grows with sqrt(chain length)")
+		for iso, z_val in zip(self.isotopes_list, z_scores):
+			print("  z_{:s} = {:s}".format(iso, _fmt_z(z_val)))
 		print()
+		print("Z scores — predictive (chain-length independent): measurement vs. predictive 1-sigma range")
+		for iso, z_val in zip(self.isotopes_list, z_pred_scores):
+			print("  z_pred_{:s} = {:s}".format(iso, _fmt_z(z_val)))
+		print()
+
 		for z_val in z_scores:
-			if np.isnan(z_val):
-				f_out.write("nan")
-			else:
-				f_out.write("{:.6f}".format(z_val))
+			f_out.write("nan" if np.isnan(z_val) else "{:.6f}".format(z_val))
+			f_out.write(self.default_delimiter)
+		for z_val in z_pred_scores:
+			f_out.write("nan" if np.isnan(z_val) else "{:.6f}".format(z_val))
 			f_out.write(self.default_delimiter)
 		f_out.write("\n")
 
@@ -617,26 +678,43 @@ class Model:
 
 
 	def _compute_z_scores(self):
-		"""Compute Z score per isotope (Eqs. 19-20, PLOS ONE doi:10.1371/journal.pone.0277204).
+		"""Compute two complementary Z scores per isotope.
 
-		For each isotope i the Z score quantifies how many standard errors the
-		measured value lies away from the nearest model-consistent solution:
+		Both scores measure how many standard deviations the measured value lies
+		away from the nearest model-consistent solution, but they differ in what
+		they use as the "standard deviation":
 
-		  * Pure-Gaussian case (no source spread, Eq. 19):
-			  z_i = |x_i - mu_i| / SEM_i
+		z (Eqs. 19-20, PLOS ONE doi:10.1371/journal.pone.0277204)
+		  Uses SEM = sigma/sqrt(n) — the precision of the estimated mean.
+		  Tests for systematic bias between the model mean and the measurement.
+		  Grows with sqrt(n), so longer chains increase apparent significance.
 
-		  * With source spread Delta_i (Eq. 20):
-			  z_i = 0                              if |x_i - mu_i| <= Delta_i
-			  z_i = (|x_i - mu_i| - Delta_i) / SEM_i  otherwise
+		  * z_i = |x_i - mu_i| / SEM_i                          (no spread, Eq. 19)
+		  * z_i = 0                    if |x_i - mu_i| <= Δ_i   (with spread, Eq. 20)
+		  * z_i = (|x_i - mu_i| - Δ_i) / SEM_i  otherwise
 
-		where:
-		  x_i   = mean measured isotope value for the group
-		  mu_i  = mean of the Markov-chain model predictions (xd2[i])
-		  SEM_i = std(xd2[i]) / sqrt(n)  (standard error of the mean)
-		  Delta_i = sum_par( |dM/dpar| * spread_par_i )  evaluated at chain means
+		z_pred (posterior predictive check, chain-length independent)
+		  Uses sigma — the full spread of the model's predictive distribution.
+		  Tests whether the measurement falls outside the model's credible range.
+		  Invariant to chain length; directly answers "is x outside 1-sigma?".
+
+		  * z_pred_i = |x_i - mu_i| / sigma_i                   (no spread)
+		  * z_pred_i = 0                  if |x_i - mu_i| <= Δ_i  (with spread)
+		  * z_pred_i = (|x_i - mu_i| - Δ_i) / sigma_i  otherwise
+
+		Common quantities:
+		  x_i     = mean measured isotope value for the group
+		  mu_i    = mean of the Markov-chain model predictions (xd2[i])
+		  sigma_i = std of the Markov-chain model predictions
+		  n       = number of chain entries
+		  SEM_i   = sigma_i / sqrt(n)
+		  Δ_i     = sum_par( |dM/dpar| * spread_par_i ) at chain-mean (f, r)
+
+		Returns: (z_scores, z_pred_scores) — one value per isotope in each list.
 		"""
+		nan_result = [float('nan')] * self.nisotopes
 		if len(self.xd2[0]) < 2:
-			return [float('nan')] * self.nisotopes
+			return nan_result, nan_result
 
 		# Evaluate derivatives at chain-mean variables
 		f = np.array([np.mean(self.xd1[j]) for j in range(self.nsources)])
@@ -644,10 +722,11 @@ class Model:
 		aux = self.aux
 		S   = self.sources
 
-		z_scores = []
+		z_scores      = []
+		z_pred_scores = []
 		for i, iso in enumerate(self.isotopes_list):
-			x_i    = np.mean([b_k[i] for b_k in self.b])
-			mu_i   = np.mean(self.xd2[i])
+			x_i     = np.mean([b_k[i] for b_k in self.b])
+			mu_i    = np.mean(self.xd2[i])
 			sigma_i = np.std(self.xd2[i])
 			n_chain = len(self.xd2[i])
 			sem_i   = sigma_i / np.sqrt(n_chain) if n_chain > 0 else 0.0
@@ -655,23 +734,31 @@ class Model:
 			# Effective half-width from source spreads (Eq. 20)
 			delta_i = 0.0
 			for par in self.mapPar:
-				dM_val   = abs(eval(self.dMdPar_code[par]))
+				dM_val   = abs(eval(self.dMdPar[par]))
 				delta_i += dM_val * self.spreadPar[par][i]
 
 			diff = abs(x_i - mu_i)
 
+			# --- SEM-based Z (Eqs. 19-20) ---
 			if sem_i == 0.0:
 				z_i = float('nan')
 			elif delta_i > 0.0:
-				# Eq. 20: zero when prediction falls within the spread-defined bounds
 				z_i = 0.0 if diff <= delta_i else (diff - delta_i) / sem_i
 			else:
-				# Eq. 19: pure Gaussian
 				z_i = diff / sem_i
 
-			z_scores.append(z_i)
+			# --- Predictive Z (chain-length independent) ---
+			if sigma_i == 0.0:
+				z_pred_i = float('nan')
+			elif delta_i > 0.0:
+				z_pred_i = 0.0 if diff <= delta_i else (diff - delta_i) / sigma_i
+			else:
+				z_pred_i = diff / sigma_i
 
-		return z_scores
+			z_scores.append(z_i)
+			z_pred_scores.append(z_pred_i)
+
+		return z_scores, z_pred_scores
 
 	def run_model(self) :
 
@@ -709,6 +796,8 @@ class Model:
 			f_out.write("CI95_up"+cl+self.default_delimiter)
 		for iso in self.isotopes_list:
 			f_out.write("z_"+iso+self.default_delimiter)
+		for iso in self.isotopes_list:
+			f_out.write("z_pred_"+iso+self.default_delimiter)
 		f_out.write("\n")
 
 
@@ -804,8 +893,8 @@ class Model:
 
 				# sample self.sources ratios from Dirichlet with the same means
 				f = np.random.dirichlet((1.,)*self.nsources)
-				# sample r from uniform distribution
-				r = [np.random.uniform() for i in range(0,self.nauxvars)]
+				# sample r from the configured prior (uniform by default)
+				r = [self._sample_aux_prior(self.aux_vars[i]) for i in range(self.nauxvars)]
 
 				# initialize log-likelihood (unnormalized)
 				L=1.
