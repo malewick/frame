@@ -6,6 +6,20 @@ Markov-chain Monte Carlo engine for calculation of isotope mixing wrapped in a s
 
 See the [webpage](https://malewick.github.io/frame/) for a user guide, information on newest releases and more.
 
+## Try it online — no installation needed
+
+> **Have a Google account and a little Python?  That's all you need.**
+
+Click the badge below to open an interactive demo in Google Colab.  The notebook clones this repository, installs all dependencies automatically, and walks you through a complete mixing analysis — including plots — entirely in your browser.
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/malewick/frame/blob/main/docs/colab_demo.ipynb)
+
+The demo covers:
+- a simple 2-D mixing example (two isotope ratios, three end-member sources)
+- a fractionation example with selectable priors for the auxiliary variable `r`
+
+No local software installation, no command line, no configuration files — just click and run.
+
 ## Install
 ### Executables
 - **Windows**: see the zipped executables in [releases](https://github.com/malewick/frame/releases/) (only Windows 10 compatible for now)
@@ -96,7 +110,7 @@ A detailed scientific description of the model is published in:
   - `'loguniform'` — `log(r) ~ Uniform[log(r_min), log(r_max)]`, suitable when `r` spans orders of magnitude
   - The GUI exposes prior type, min and max controls per auxiliary variable.
 - **Batch mode** — headless runs via `run/run_batch.py` with full CLI argument support (including `--aux_prior_type`, `--aux_r_min`, `--aux_r_max`).
-- **Colab-ready** — see `docs/colab_demo.ipynb` for an interactive walkthrough.
+- **Colab-ready** — run everything in your browser with the [interactive demo notebook](https://colab.research.google.com/github/malewick/frame/blob/main/docs/colab_demo.ipynb); no local installation required.
 
 ## Changelog
 
