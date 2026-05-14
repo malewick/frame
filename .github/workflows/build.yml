@@ -3,7 +3,9 @@ name: Build Windows EXE
 on:
   push:
     branches: [main]
-  workflow_dispatch:  # allows manual/manual trigger
+    tags:
+      - 'v*'          # e.g. v2.0, v2.1 — triggers a GitHub Release
+  workflow_dispatch:  # allows manual trigger from the Actions tab
 
 jobs:
   build:
@@ -17,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '3.9'
 
       - name: Install dependencies
         run: |
@@ -25,17 +27,24 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Build .exe with PyInstaller
+      - name: Build FRAME.exe (GUI)
         run: pyinstaller FRAME.spec
 
-      - name: Debug, show files in dist
-        run: dir /s
-        shell: cmd
+      - name: Build FRAME_batch.exe (headless batch runner)
+        run: pyinstaller FRAME_batch.spec
 
-      - name: Upload EXE artifact
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: frame-windows-exe
-          path: |
-            build/FRAME/**
-            dist/**
+          path: dist/
+
+      # --- only runs when a version tag (v*) is pushed ---
+      - name: Create GitHub Release and upload EXEs
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/FRAME.exe
+            dist/FRAME_batch.exe
+          generate_release_notes: true
