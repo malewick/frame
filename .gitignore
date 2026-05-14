@@ -1,0 +1,22 @@
+# Generated run output
+output/
+
+# Personal scratch / exploration - not for the repo
+nogit/
+
+# Generated images at repo root
+*.png
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+src/__pycache__/
+
+# IDE / editor workspace files
+frame.code-workspace
+.vscode/
+
+# OS artefacts
+.DS_Store
