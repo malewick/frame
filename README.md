@@ -30,6 +30,54 @@ Alternatively you can run the code without the graphical interface with (see the
 python run/run_batch.py <data_file> <sources_file>
 ```
 
+### Windows / PowerShell (executable)
+
+Pre-built Windows executables are available in [releases](https://github.com/malewick/frame/releases/).
+`FRAME.exe` launches the graphical interface. `FRAME_batch.exe` is the headless batch runner, equivalent to `run_batch.py`, and is controlled entirely through command-line arguments:
+
+**Required arguments**
+
+| Argument | Description |
+|---|---|
+| `data_file` | Path to the input data CSV file |
+| `sources_file` | Path to the sources CSV file |
+
+**Optional arguments**
+
+| Argument | Default | Description |
+|---|---|---|
+| `--aux_file` | *(none)* | Path to the auxiliary parameters CSV file |
+| `--output_dir` | `output` | Directory for saving results |
+| `--output_filenames` | *(auto)* | Custom tag prepended to output file names |
+| `--output_formats` | `pdf,png` | Comma-separated list of plot formats |
+| `--niter` | `1000000` | Maximum number of MCMC iterations |
+| `--burnout` | `100` | Number of burn-in iterations |
+| `--chain_length` | `500` | Number of accepted steps to record |
+| `--plot_online` | `True` | Show live plots during the run (`True`/`False`) |
+| `--aux_prior_type` | `uniform` | Prior for the auxiliary variable `r`: `uniform` or `loguniform` |
+| `--aux_r_min` | `0.0` | Lower bound of the auxiliary variable prior |
+| `--aux_r_max` | `1.0` | Upper bound of the auxiliary variable prior |
+
+**Example — simple 2D mixing (PowerShell)**
+
+```powershell
+.\FRAME_batch.exe data\data.csv config\sources.csv `
+    --output_dir results --output_filenames run1 `
+    --output_formats pdf,png --niter 500000 --burnout 200 --chain_length 1000 `
+    --plot_online False
+```
+
+**Example — 2D mixing with fractionation and a log-uniform prior for `r` (PowerShell)**
+
+```powershell
+.\FRAME_batch.exe data\data.csv config\sources.csv `
+    --aux_file data\aux.csv `
+    --aux_prior_type loguniform --aux_r_min 0.001 --aux_r_max 1.0 `
+    --output_dir results --output_filenames run1 --plot_online False
+```
+
+> Tip: quote paths that contain spaces, e.g. `"my data\data.csv"`.
+
 ## Docs and user guide
 
 The user guide can be found under [this link](https://malewick.github.io/frame/).
@@ -84,13 +132,12 @@ The GUI exposes dropdown + min/max fields per auxiliary variable. The batch scri
 #### Performance improvements
 
 - `eval()` calls on derivative/model strings replaced with precompiled `compile()` code objects — significant speedup for long chains.
-- FFT convolution grid reduced to 200 points (sufficient accuracy, ~5× faster than the initial 1000-point prototype).
+- FFT convolution optimized to handle any probability distribution numerically (using 200 points - decrease for performance improvement, increase for more accuracy).
 - Uniform PDF computed directly with NumPy instead of constructing a `scipy.stats.uniform` object per call.
 
 #### GUI
 
 - Prior type / min / max controls added to the "Aux. variables" panel (loaded after an aux file is selected).
-- Plot columns now receive all horizontal stretch when the window is resized.
 
 ---
 

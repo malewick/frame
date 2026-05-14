@@ -39,7 +39,8 @@ parser.add_argument("--output_formats", default="pdf,png", help="Format of outpu
 parser.add_argument("--niter", default=1e6, help="Number of max MCMC iterations (terminated when exceeded)")
 parser.add_argument("--burnout", default=100, help="Number of burnout iterations (for the likelihood to reach a plateau)")
 parser.add_argument("--chain_length", default=500, help="Number of chain entries to be saved")
-parser.add_argument("--plot_online", default=True, help="Turn on/off online plotting (True/False)")
+parser.add_argument("--plot_online", default="True",
+                    help="Turn on/off online plotting (True/False, default: True)")
 
 # --- Auxiliary variable prior ---
 # These settings apply to the first auxiliary variable 'r'.
@@ -83,7 +84,9 @@ if args.aux_file and model.aux_toggle:
 
 # set the output directory and naming
 model.set_outdir(out_dir=args.output_dir)
-if args.output_filenames == "":
+if args.output_filenames != "":
+        model.myfilename = args.output_filenames
+else:
         model.myfilename = args.data_file + "_" + args.sources_file + "_" + args.aux_file
 
 # enter your desired formats separated with a comma
@@ -93,7 +96,7 @@ model.myfmt = args.output_formats
 model.set_iterations(args.niter, args.burnout, args.chain_length)
 
 # Turn online plotting on/off
-model.plotting_switch = True
+model.plotting_switch = str(args.plot_online).strip().lower() not in ("false", "0", "no")
 
 # run model
 model.run_model()
