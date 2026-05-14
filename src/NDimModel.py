@@ -8,7 +8,6 @@ author: Maciej P. Lewicki
 malewick@cern.ch
 """
 
-import math
 import pandas as pd
 import numpy as np
 from numpy import *
@@ -28,6 +27,9 @@ import TimeSeriesPlot
 import PathPlot
 import CorrelationPlot
 import ResultsPlot
+
+from scipy.stats import norm, uniform
+from scipy.signal import fftconvolve
 
 
 def splitall(s):
@@ -264,10 +266,10 @@ class Model:
 			for spread in self.df_sources["spread("+iso+")"]:
 				spread_sum += spread
 		if spread_sum == 0:
-			print("Using gaussian-like likelihood function.")
+			print("All source spreads are zero: likelihood will use the pure-Gaussian path for all isotopes.")
 			self.erf_toggle = False
 		else :
-			print("Using erf-like likelihood function.")
+			print("Nonzero source spreads detected: likelihood will use numerical convolution per isotope.")
 			
 
 
@@ -357,11 +359,11 @@ class Model:
 			for i in range(len(self.sources_list)):
 				strM0+='S[i]['+str(i)+']*f['+str(i)+']+'
 			strM0 = strM0[:-1]
-			self.model_definition = re.sub('M0\[i\]',strM0,self.model_definition)
+			self.model_definition = re.sub(r'M0\[i\]',strM0,self.model_definition)
 			self.model_definition = self.model_definition.lstrip('\ufeff')
 
 			self.sym_model_definition = re.sub(r'\[(\d*)\]',r'\1',self.model_definition)
-			self.sym_model_definition = re.sub('\[i\]','',self.sym_model_definition)
+			self.sym_model_definition = re.sub(r'\[i\]','',self.sym_model_definition)
 
 			self.sym_model_derivatives=[]
 			self.model_derivatives.clear()
@@ -447,6 +449,7 @@ class Model:
 
 		self.mapPar={}
 		self.stdevPar={}
+		self.spreadPar={}
 		self.dMdPar={}
 		print("----")
 		print(self.sources_list)
@@ -454,11 +457,19 @@ class Model:
 		for j in range(self.nsources) :
 			self.mapPar[self.sources_list[j]] = [self.sources[i][j] for i in range(self.nisotopes)]
 			self.stdevPar[self.sources_list[j]] = [self.sources_stdev[i][j] for i in range(self.nisotopes)]
+			self.spreadPar[self.sources_list[j]] = [self.sources_spread[i][j] for i in range(self.nisotopes)]
 			self.dMdPar[self.sources_list[j]] = self.model_derivatives[j]
 		for j in range(self.nauxpars) :
 			self.mapPar[self.aux_pars[j]] = [self.aux[i][j] for i in range(self.nisotopes)]
 			self.stdevPar[self.aux_pars[j]] = [self.aux_stdev[i][j] for i in range(self.nisotopes)]
+			self.spreadPar[self.aux_pars[j]] = [self.aux_spread[i][j] for i in range(self.nisotopes)]
 			self.dMdPar[self.aux_pars[j]] = self.model_derivatives[self.nsources + j]
+
+		# Pre-compile derivative expressions so the hot MCMC loop avoids
+		# re-parsing strings on every iteration.
+		self.dMdPar_code = {par: compile(expr, "<dMdPar>", "eval") for par, expr in self.dMdPar.items()}
+		if self.aux_toggle:
+			self.model_definition_code = compile(self.model_definition, "<model_definition>", "eval")
 
 		print("self.mapPar: ",self.mapPar)
 		print("self.stdevPar: ",self.stdevPar)
@@ -558,6 +569,24 @@ class Model:
 			f_out.write(self.default_delimiter)
 			f_out.write("{:.6f}".format(err95_high))
 			f_out.write(self.default_delimiter)
+
+		# --- Z scores (Eqs. 19-20) ---
+		z_scores = self._compute_z_scores()
+		print()
+		print("Z scores (standard deviations from the nearest model-consistent solution):")
+		for i, iso in enumerate(self.isotopes_list):
+			z_val = z_scores[i]
+			if np.isnan(z_val):
+				print("  z_{:s} = nan  (chain too short)".format(iso))
+			else:
+				print("  z_{:s} = {:.4f}".format(iso, z_val))
+		print()
+		for z_val in z_scores:
+			if np.isnan(z_val):
+				f_out.write("nan")
+			else:
+				f_out.write("{:.6f}".format(z_val))
+			f_out.write(self.default_delimiter)
 		f_out.write("\n")
 
 		print()
@@ -586,6 +615,63 @@ class Model:
 		for row in self.xd2:
 			row.clear()
 
+
+	def _compute_z_scores(self):
+		"""Compute Z score per isotope (Eqs. 19-20, PLOS ONE doi:10.1371/journal.pone.0277204).
+
+		For each isotope i the Z score quantifies how many standard errors the
+		measured value lies away from the nearest model-consistent solution:
+
+		  * Pure-Gaussian case (no source spread, Eq. 19):
+			  z_i = |x_i - mu_i| / SEM_i
+
+		  * With source spread Delta_i (Eq. 20):
+			  z_i = 0                              if |x_i - mu_i| <= Delta_i
+			  z_i = (|x_i - mu_i| - Delta_i) / SEM_i  otherwise
+
+		where:
+		  x_i   = mean measured isotope value for the group
+		  mu_i  = mean of the Markov-chain model predictions (xd2[i])
+		  SEM_i = std(xd2[i]) / sqrt(n)  (standard error of the mean)
+		  Delta_i = sum_par( |dM/dpar| * spread_par_i )  evaluated at chain means
+		"""
+		if len(self.xd2[0]) < 2:
+			return [float('nan')] * self.nisotopes
+
+		# Evaluate derivatives at chain-mean variables
+		f = np.array([np.mean(self.xd1[j]) for j in range(self.nsources)])
+		r = [np.mean(self.xd1[self.nsources + j]) for j in range(self.nauxvars)]
+		aux = self.aux
+		S   = self.sources
+
+		z_scores = []
+		for i, iso in enumerate(self.isotopes_list):
+			x_i    = np.mean([b_k[i] for b_k in self.b])
+			mu_i   = np.mean(self.xd2[i])
+			sigma_i = np.std(self.xd2[i])
+			n_chain = len(self.xd2[i])
+			sem_i   = sigma_i / np.sqrt(n_chain) if n_chain > 0 else 0.0
+
+			# Effective half-width from source spreads (Eq. 20)
+			delta_i = 0.0
+			for par in self.mapPar:
+				dM_val   = abs(eval(self.dMdPar_code[par]))
+				delta_i += dM_val * self.spreadPar[par][i]
+
+			diff = abs(x_i - mu_i)
+
+			if sem_i == 0.0:
+				z_i = float('nan')
+			elif delta_i > 0.0:
+				# Eq. 20: zero when prediction falls within the spread-defined bounds
+				z_i = 0.0 if diff <= delta_i else (diff - delta_i) / sem_i
+			else:
+				# Eq. 19: pure Gaussian
+				z_i = diff / sem_i
+
+			z_scores.append(z_i)
+
+		return z_scores
 
 	def run_model(self) :
 
@@ -621,6 +707,8 @@ class Model:
 			f_out.write("CI68_up"+cl+self.default_delimiter)
 			f_out.write("CI95_low"+cl+self.default_delimiter)
 			f_out.write("CI95_up"+cl+self.default_delimiter)
+		for iso in self.isotopes_list:
+			f_out.write("z_"+iso+self.default_delimiter)
 		f_out.write("\n")
 
 
@@ -776,49 +864,74 @@ class Model:
 						#print("r[0]",r[0])
 						#print((M0[i]-aux[0][i]*r[0])*(1-aux[1][i])+8.6*aux[1][i])
 						#print()
-						M[i] = eval(self.model_definition)
+						M[i] = eval(self.model_definition_code)
 				else :
 					M = M0.copy()
 
-				# calculate standard deviations
-				# 
-				# it has a form of: sqrt( sum_i( dM/dPar_i stdev(Par_i) )  )
-				# plus contribution from measurement errors
-				
+				# Combined Gaussian sigma: error propagation from source stdevs plus data measurement uncertainty.
+				# Each term: (dM/dPar_i * stdev_i)^2, summed in quadrature.
 				M_stdev=np.zeros(shape=(self.nisotopes),dtype='double')
 
 				for i in range(self.nisotopes):
-					# measured data uncertainty
 					M_stdev[i] += stdev2_data[i]
-
 					for par in self.mapPar:
-						M_stdev[i] += (eval(self.dMdPar[par])*self.stdevPar[par][i])**2
-						
+						M_stdev[i] += (eval(self.dMdPar_code[par])*self.stdevPar[par][i])**2
 					M_stdev[i]=np.sqrt(M_stdev[i])
 
 				for i in range(self.nisotopes):
-					# Erf-like likelihood
-					if self.erf_toggle:
-						sumdS=0
-						for j,src in enumerate(self.sources_list):
-							sumdS+=eval(self.dMdPar[src]) * self.sources_spread[i][j]
-						for j,par in enumerate(self.aux_pars):
-							sumdS+=eval(self.dMdPar[par]) * self.aux_spread[i][j]
-						for b_k in b:
-							if sumdS==0:
-								L=0
-							elif M_stdev[i]==0:
-								if -sumdS+M[i] < b_k[i] and sumdS+M[i] > b_k[i]:
-									L*=(1./sumdS)
-								else: 
-									L=0
-							else:
-								L *= (1./sumdS) * (  math.erf( (sumdS+M[i]-b_k[i]) / (sqrt(2)*M_stdev[i]) ) - math.erf( (-sumdS+M[i]-b_k[i]) / (sqrt(2)*M_stdev[i]) )  )
+					# Collect the effective half-width of the uniform uncertainty for each parameter.
+					# For a source/aux par with spread d, its contribution to the uncertainty in M is
+					# Uniform(-|dM/dPar|*d, +|dM/dPar|*d), a symmetric distribution centered at zero.
+					uniform_halfwidths = []
+					for par in self.mapPar:
+						w = abs(eval(self.dMdPar_code[par])) * self.spreadPar[par][i]
+						if w > 0:
+							uniform_halfwidths.append(w)
 
-					# Gaussian-like likelihood
-					else :
+					if not uniform_halfwidths:
+						# Pure Gaussian path - fast analytical evaluation
+						if M_stdev[i] > 0:
+							pdf = norm(loc=M[i], scale=M_stdev[i])
+							for b_k in b:
+								L *= pdf.pdf(b_k[i])
+					else:
+						# Numerical convolution path.
+						# The likelihood is the convolution of:
+						#   - one Gaussian (combined stdev from all sources + data uncertainty)
+						#   - one symmetric Uniform per parameter with nonzero spread
+						# evaluated at (b_k[i] - M[i]).
+						#
+						# n_conv_points controls the resolution/speed trade-off.
+						# Fewer points = faster but coarser; 200 is a practical default.
+						n_conv_points = 200
+
+						total_spread = sum(uniform_halfwidths)
+						max_eval_dist = float(np.max([abs(b_k[i] - M[i]) for b_k in b]))
+						half_width = total_spread + float(np.maximum(5.0 * M_stdev[i], total_spread * 0.1)) + max_eval_dist
+
+						x_conv = np.linspace(-half_width, half_width, n_conv_points)
+						dx = x_conv[1] - x_conv[0]
+
+						# Start with the combined Gaussian, or a delta-function approximation when stdev = 0
+						if M_stdev[i] > 0:
+							compound_pdf = norm(loc=0.0, scale=M_stdev[i]).pdf(x_conv)
+						else:
+							compound_pdf = np.zeros(n_conv_points)
+							compound_pdf[n_conv_points // 2] = 1.0 / dx
+
+					# Sequentially convolve in each uniform component.
+					# Using direct numpy array ops avoids scipy object overhead.
+					for w in uniform_halfwidths:
+						u_pdf = np.where((x_conv >= -w) & (x_conv <= w), 1.0 / (2.0 * w), 0.0)
+						compound_pdf = fftconvolve(compound_pdf, u_pdf, mode='same') * dx
+
+						# Renormalize to correct for fftconvolve edge truncation
+						norm_factor = np.sum(compound_pdf) * dx
+						if norm_factor > 0:
+							compound_pdf /= norm_factor
+
 						for b_k in b:
-							L *= (1./M_stdev[i]/np.sqrt(2.*np.pi)) * np.exp( -(b_k[i]-M[i])**2./(2.*M_stdev[i]) )
+							L *= float(np.interp(b_k[i] - M[i], x_conv, compound_pdf, left=0.0, right=0.0))
 
 
 				# if Metropolis condition fulfilled
@@ -885,14 +998,17 @@ class Model:
 							print("metropolis plotting [s]:",timer_metropolis_end-timer_metropolis_start)
 
 
-			f_row.close()
+		f_row.close()
 
-			if (self.chain_counter < self.max_chain_entries and not self.abort):
-				print("Terminating - reached limit of max iterations.")
-			self.sim_finished(group,f_out)
+		# Store current group's measurements so sim_finished can access them for Z scores
+		self.b = b
 
-			print("Finished for group ", group)
-			print()
+		if (self.chain_counter < self.max_chain_entries and not self.abort):
+			print("Terminating - reached limit of max iterations.")
+		self.sim_finished(group,f_out)
+
+		print("Finished for group ", group)
+		print()
 
 		f_out.close()
 
